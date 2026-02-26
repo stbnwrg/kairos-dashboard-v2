@@ -1369,11 +1369,21 @@ import plotly.graph_objects as go
 
 fig = go.Figure()
 
+# Colores corporativos
+COLOR_KAIROS = "#4B2E2B"
+COLOR_SUCCESS = "#2E7D32"
+COLOR_ALERT = "#C62828"
+
+# Determinar color del flujo vs inversión
+color_flujo_real = COLOR_SUCCESS if flujo_m["flujo_vs_inversion"].iloc[-1] >= 0 else COLOR_ALERT
+
 fig.add_trace(go.Scatter(
     x=flujo_m["fecha"],
     y=flujo_m["flujo_acumulado"],
     mode="lines+markers",
-    name="Flujo Operativo Acumulado"
+    name="Flujo Operativo Acumulado",
+    line=dict(color=COLOR_KAIROS, width=3),
+    marker=dict(size=6)
 ))
 
 fig.add_trace(go.Scatter(
@@ -1381,21 +1391,32 @@ fig.add_trace(go.Scatter(
     y=[capital_total_invertido]*len(flujo_m),
     mode="lines",
     name="Capital Invertido",
-    line=dict(dash="dash")
+    line=dict(color=COLOR_ALERT, dash="dash", width=2)
 ))
 
 fig.add_trace(go.Scatter(
     x=flujo_m["fecha"],
     y=flujo_m["flujo_vs_inversion"],
-    mode="lines",
-    name="Flujo Neto vs Inversión"
+    mode="lines+markers",
+    name="Flujo Neto vs Inversión",
+    line=dict(color=color_flujo_real, width=3),
+    marker=dict(size=6)
 ))
 
 fig.update_layout(
     title="Flujo Acumulado vs Capital Invertido",
     xaxis_title="Fecha",
     yaxis_title="Monto ($)",
-    template="plotly_white"
+    template="plotly_white",
+    plot_bgcolor="#F5EFE6",
+    paper_bgcolor="#F5EFE6",
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="center",
+        x=0.5
+    )
 )
 
 st.plotly_chart(fig, use_container_width=True)
