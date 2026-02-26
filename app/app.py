@@ -502,7 +502,7 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
             os.makedirs("uploads", exist_ok=True)
 
             ventas_path = os.path.join("uploads", "ventas.xlsx")
-            gastos_path = os.path.join("uploads", "gastos.xlsx")
+            gastos_path = os.path.join("uploads", "gastos.xls")
 
             with open(ventas_path, "wb") as f:
                 f.write(ventas_file.getbuffer())
@@ -511,10 +511,13 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                 f.write(gastos_file.getbuffer())
 
             # Ejecutar ETL correctamente
-            from etl.etl_pipeline import run_etl
-            run_etl()
+            #from etl.etl_pipeline import run_etl
+            #run_etl()
 
-            st.write(gastos.columns)
+
+            # Ejecutar ETL
+            subprocess.run(["python", "etl/etl_pipeline.py"])
+
             st.cache_data.clear()
             st.success("Datos actualizados correctamente.")
             st.rerun()
