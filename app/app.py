@@ -234,6 +234,11 @@ except Exception:
             with open(os.path.join(PROJECT_ROOT, "uploads", "ventas.xlsx"), "wb") as f:
                 f.write(uploaded_ventas.getbuffer())
 
+            import sys
+            import os
+
+            sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
             from etl.etl_pipeline import run_etl
             run_etl()
 

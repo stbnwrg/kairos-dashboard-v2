@@ -267,6 +267,10 @@ def crear_calendario(df_ventas, df_gastos):
 # MAIN
 # =====================================================
 
+# =====================================================
+# MAIN
+# =====================================================
+
 def main():
 
     print("Procesando Gastos...")
@@ -286,13 +290,9 @@ def main():
 
     print("Guardando en PostgreSQL (Neon)...")
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL no configurada.")
+    DATABASE_URL = os.environ["DATABASE_URL"]
 
     engine = create_engine(DATABASE_URL)
-
 
     df_gastos.to_sql("fact_gastos", engine, if_exists="replace", index=False)
     df_ventas.to_sql("fact_ventas", engine, if_exists="replace", index=False)
@@ -302,8 +302,7 @@ if not DATABASE_URL:
 
     print("ETL COMPLETADO CORRECTAMENTE.")
 
-#crear tablas
-#insertar datos
+
 def run_etl():
     main()
 
