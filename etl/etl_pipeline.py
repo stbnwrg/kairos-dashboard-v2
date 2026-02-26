@@ -16,7 +16,7 @@ UPLOADS_DIR = os.path.join(PROJECT_ROOT, "uploads")
 RUTA_GASTOS = os.path.join(UPLOADS_DIR, "gastos.xls")
 RUTA_VENTAS = os.path.join(UPLOADS_DIR, "ventas.xlsx")
 
-DB_PATH = os.path.join(PROJECT_ROOT, "database", "kairos.db")
+
 
 # =====================================================
 # VALIDA RUTAS
@@ -284,8 +284,15 @@ def main():
     print("Creando Calendario...")
     df_calendario = crear_calendario(df_ventas, df_gastos)
 
-    print("Guardando en SQLite...")
-    engine = create_engine(f"sqlite:///{DB_PATH}")
+    print("Guardando en PostgreSQL (Neon)...")
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL no configurada.")
+
+    engine = create_engine(DATABASE_URL)
+
 
     df_gastos.to_sql("fact_gastos", engine, if_exists="replace", index=False)
     df_ventas.to_sql("fact_ventas", engine, if_exists="replace", index=False)
@@ -303,4 +310,3 @@ def run_etl():
 if __name__ == "__main__":
     main()
     
-print(f"Base actualizada en: {DB_PATH}")

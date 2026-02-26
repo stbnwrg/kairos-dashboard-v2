@@ -176,47 +176,46 @@ div[data-testid="stDataFrame"] th {{
 </style>
 """, unsafe_allow_html=True)
 
+
 # ======================================================
-# DATA
+# DATA (PostgreSQL - Neon)
 # ======================================================
 
+from sqlalchemy import create_engine
+import os
 
-# Ejecutar ETL si la DB no existe
-def ensure_database():
-    if not os.path.exists(DB_PATH):
-        st.info("📂 No existe base de datos aún.")
-        st.info("Carga archivos para generar la base.")
-        return False
-    return True
+# 🔐 Obtener variable de entorno UNA sola vez
+DATABASE_URL: str = os.environ["DATABASE_URL"]  # falla inmediato si no existe
 
 
 @st.cache_data
 def load_data():
-    conn = sqlite3.connect(DB_PATH)
-    ventas = pd.read_sql("SELECT * FROM fact_ventas", conn)
-    gastos = pd.read_sql("SELECT * FROM fact_gastos", conn)
-    items = pd.read_sql("SELECT * FROM fact_items", conn)
-    secciones = pd.read_sql("SELECT * FROM dim_secciones", conn)
+    engine = create_engine(DATABASE_URL)
+
+    ventas = pd.read_sql("SELECT * FROM fact_ventas", engine)
+    gastos = pd.read_sql("SELECT * FROM fact_gastos", engine)
+    items = pd.read_sql("SELECT * FROM fact_items", engine)
+    secciones = pd.read_sql("SELECT * FROM dim_secciones", engine)
+
     try:
-        calendario = pd.read_sql("SELECT * FROM dim_calendario", conn)
+        calendario = pd.read_sql("SELECT * FROM dim_calendario", engine)
     except Exception:
         calendario = pd.DataFrame()
-    conn.close()
+
     return ventas, gastos, items, secciones, calendario
 
 
-# 🔥 ESTA ES LA PARTE CLAVE
-db_ready = ensure_database()
-
-if db_ready:
+# Intentar cargar datos
+try:
     ventas, gastos, items, secciones, calendario = load_data()
 
-    # fechas
+    # convertir fechas
     for df, col in [(ventas, "fecha"), (gastos, "fecha"), (items, "fecha")]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
 
-else:
+except Exception:
+    st.info("📂 Base aún no inicializada.")
     st.divider()
     st.subheader("⚙ Generar Base de Datos Inicial")
 
@@ -227,25 +226,18 @@ else:
 
         if st.button("🚀 Generar Base de Datos", use_container_width=True):
 
-            # Crear carpeta uploads si no existe
             os.makedirs(os.path.join(PROJECT_ROOT, "uploads"), exist_ok=True)
 
-            # Guardar archivos
             with open(os.path.join(PROJECT_ROOT, "uploads", "gastos.xls"), "wb") as f:
                 f.write(uploaded_gastos.getbuffer())
 
             with open(os.path.join(PROJECT_ROOT, "uploads", "ventas.xlsx"), "wb") as f:
                 f.write(uploaded_ventas.getbuffer())
 
-            # Ejecutar ETL
-            import sys
-            sys.path.append(PROJECT_ROOT)
-
             from etl.etl_pipeline import run_etl
             run_etl()
 
             st.success("Base generada correctamente. Recargando...")
-
             st.rerun()
 
     st.stop()
