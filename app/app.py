@@ -184,9 +184,11 @@ div[data-testid="stDataFrame"] th {{
 # Ejecutar ETL si la DB no existe
 def ensure_database():
     if not os.path.exists(DB_PATH):
-        st.warning("Base de datos no encontrada. Ejecutando ETL inicial...")
-        from etl.etl_pipeline import run_etl
-        run_etl()
+        try:
+            from etl.etl_pipeline import run_etl
+            run_etl()
+        except Exception as e:
+            st.warning("No se pudo generar base de datos. Esperando carga de archivos.")
 ensure_database()
 
 @st.cache_data
