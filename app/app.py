@@ -1408,8 +1408,8 @@ fig.update_layout(
     xaxis_title="Fecha",
     yaxis_title="Monto ($)",
     template="plotly_white",
-    plot_bgcolor="#F5EFE6",
-    paper_bgcolor="#F5EFE6",
+    plot_bgcolor=KAIROS_BG,
+    paper_bgcolor=KAIROS_BG,
     legend=dict(
         orientation="h",
         yanchor="bottom",
