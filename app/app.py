@@ -215,14 +215,37 @@ if db_ready:
     for df, col in [(ventas, "fecha"), (gastos, "fecha"), (items, "fecha")]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
+
 else:
+    st.divider()
+    st.subheader("⚙ Generar Base de Datos Inicial")
+
+    uploaded_gastos = st.file_uploader("Subir archivo gastos.xls", type=["xls"])
+    uploaded_ventas = st.file_uploader("Subir archivo ventas.xlsx", type=["xlsx"])
+
+    if uploaded_gastos and uploaded_ventas:
+
+        if st.button("🚀 Generar Base de Datos", use_container_width=True):
+
+            # Crear carpeta uploads si no existe
+            os.makedirs(os.path.join(PROJECT_ROOT, "uploads"), exist_ok=True)
+
+            # Guardar archivos
+            with open(os.path.join(PROJECT_ROOT, "uploads", "gastos.xls"), "wb") as f:
+                f.write(uploaded_gastos.getbuffer())
+
+            with open(os.path.join(PROJECT_ROOT, "uploads", "ventas.xlsx"), "wb") as f:
+                f.write(uploaded_ventas.getbuffer())
+
+            # Ejecutar ETL
+            from etl.etl_pipeline import run_etl
+            run_etl()
+
+            st.success("Base generada correctamente. Recargando...")
+
+            st.experimental_rerun()
+
     st.stop()
-
-# fechas
-for df, col in [(ventas, "fecha"), (gastos, "fecha"), (items, "fecha")]:
-    if col in df.columns:
-        df[col] = pd.to_datetime(df[col], errors="coerce")
-
 
 # ======================================================
 # HELPERS
