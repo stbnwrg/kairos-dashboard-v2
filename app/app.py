@@ -510,9 +510,11 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
             with open(gastos_path, "wb") as f:
                 f.write(gastos_file.getbuffer())
 
-            # Ejecutar ETL
-            subprocess.run(["python", "etl/etl_pipeline.py"])
+            # Ejecutar ETL correctamente
+            from etl.etl_pipeline import run_etl
+            run_etl()
 
+            st.write(gastos.columns)
             st.cache_data.clear()
             st.success("Datos actualizados correctamente.")
             st.rerun()
