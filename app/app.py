@@ -659,7 +659,7 @@ else:
     # fallback ultra defensivo
     costos_variables = float(gastos_f["total"].sum()) if "total" in gastos_f.columns else 0.0
     costos_fijos = 0.0
-    CAPEX = 0.0
+    inversion = 0.0
 
 ebit = ventas_total - costos_variables - costos_fijos
 
@@ -722,7 +722,7 @@ kpis = [
     ("Costos Variables", fmt_money(costos_variables)),
     ("Costos Fijos", fmt_money(costos_fijos)),
     ("Margen Operacional", f"{margen_operacional:.1%}"),
-    ("Inversión (Implementación)", fmt_money(CAPEX)),
+    ("Inversión (Implementación)", fmt_money(inversion)),
 ]
 
 cards_html = '<div class="kpi-row">' + "".join(
