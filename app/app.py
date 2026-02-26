@@ -8,10 +8,10 @@ import tempfile
 import datetime
 import base64
 import io
-import pdfkit
+# import pdfkit
 
-WKHTML_PATH = r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe"
-config = pdfkit.configuration(wkhtmltopdf=WKHTML_PATH)
+#WKHTML_PATH = r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe"
+#config = pdfkit.configuration(wkhtmltopdf=WKHTML_PATH)
 
 
 # ======================================================
@@ -395,14 +395,14 @@ def generar_pdf_html(
 
     pdf_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
 
-    pdfkit.from_string(
-        html,
-        pdf_path,
-        configuration=config,
-        options={
-            "enable-local-file-access": None
-        }
-    )
+    # pdfkit.from_string(
+    #    html,
+    #    pdf_path,
+    #    configuration=config,
+    #    options={
+    #        "enable-local-file-access": None
+    #    }
+    #)
 
     return pdf_path
 
@@ -1382,51 +1382,51 @@ col_b2.metric("Ventas necesarias para cubrir CF", fmt_money(punto_equilibrio))
 # ======================================================
 # EXPORTAR PDF
 # ======================================================
-st.divider()
-st.subheader("Exportar Reporte Ejecutivo")
+#st.divider()
+#st.subheader("Exportar Reporte Ejecutivo")
 
-if years_sel and months_sel:
-    filtros_label = (
-        f"Período: {min(years_sel)}-{max(years_sel)} | "
-        f"Meses: {', '.join([MESES[m] for m in months_sel])}"
-    )
-else:
-    filtros_label = "Período completo disponible"
+#if years_sel and months_sel:
+#    filtros_label = (
+#        f"Período: {min(years_sel)}-{max(years_sel)} | "
+#        f"Meses: {', '.join([MESES[m] for m in months_sel])}"
+#    )
+#else:
+#    filtros_label = "Período completo disponible"
+#
+#if st.button("📄 Generar PDF Profesional", use_container_width=True):
 
-if st.button("📄 Generar PDF Profesional", use_container_width=True):
-
-    try:
-        with st.spinner("Generando reporte ejecutivo..."):
-
-            pdf_file = generar_pdf_html(
-                ventas_total=ventas_total,
-                costos_variables=costos_variables,
-                costos_fijos=costos_fijos,
-                ebit=ebit,
-                impuestos=impuestos,
-                resultado_neto=resultado_neto,
-                margen_operacional=margen_operacional,
-                punto_equilibrio=punto_equilibrio,
-                fig_resultado=fig_res,
-                fig_flujo=fig_flujo,
-                fig_acum=fig_acum,
-                hist_pl=hist_pl_fmt,
-                estado_df=estado.assign(Monto=estado["Monto"].map(fmt_money)),
-                filtros_label=filtros_label
-            )
-
-        with open(pdf_file, "rb") as pdf_bytes:
-            st.download_button(
-                label="⬇ Descargar PDF",
-                data=pdf_bytes,
-                file_name="Reporte_Ejecutivo_Kairos.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-
-    except Exception as e:
-        st.error("Error al generar PDF. Verifica instalación de wkhtmltopdf.")
-        st.exception(e)
+#    try:
+#        with st.spinner("Generando reporte ejecutivo..."):
+#
+#            pdf_file = generar_pdf_html(
+#                ventas_total=ventas_total,
+#                costos_variables=costos_variables,
+#                costos_fijos=costos_fijos,
+#                ebit=ebit,
+#                impuestos=impuestos,
+#                resultado_neto=resultado_neto,
+#                margen_operacional=margen_operacional,
+#                punto_equilibrio=punto_equilibrio,
+#                fig_resultado=fig_res,
+#                fig_flujo=fig_flujo,
+#                fig_acum=fig_acum,
+#                hist_pl=hist_pl_fmt,
+#                estado_df=estado.assign(Monto=estado["Monto"].map(fmt_money)),
+#                filtros_label=filtros_label
+#            )
+#
+#        with open(pdf_file, "rb") as pdf_bytes:
+#            st.download_button(
+#                label="⬇ Descargar PDF",
+##                data=pdf_bytes,
+#                file_name="Reporte_Ejecutivo_Kairos.pdf",
+#                mime="application/pdf",
+#                use_container_width=True
+#            )
+#
+#    except Exception as e:
+#        st.error("Error al generar PDF. Verifica instalación de wkhtmltopdf.")
+#        st.exception(e)
 # ======================================================
 # DESCARGA COMPLETA DATA FILTRADA
 # ======================================================
