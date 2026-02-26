@@ -184,12 +184,11 @@ div[data-testid="stDataFrame"] th {{
 # Ejecutar ETL si la DB no existe
 def ensure_database():
     if not os.path.exists(DB_PATH):
-        try:
-            from etl.etl_pipeline import run_etl
-            run_etl()
-        except Exception as e:
-            st.warning("No se pudo generar base de datos. Esperando carga de archivos.")
-ensure_database()
+        st.info("📂 No existe base de datos aún.")
+        st.info("Carga archivos para generar la base.")
+        return False
+    return True
+
 
 @st.cache_data
 def load_data():
@@ -205,7 +204,19 @@ def load_data():
     conn.close()
     return ventas, gastos, items, secciones, calendario
 
-ventas, gastos, items, secciones, calendario = load_data()
+
+# 🔥 ESTA ES LA PARTE CLAVE
+db_ready = ensure_database()
+
+if db_ready:
+    ventas, gastos, items, secciones, calendario = load_data()
+
+    # fechas
+    for df, col in [(ventas, "fecha"), (gastos, "fecha"), (items, "fecha")]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+else:
+    st.stop()
 
 # fechas
 for df, col in [(ventas, "fecha"), (gastos, "fecha"), (items, "fecha")]:
