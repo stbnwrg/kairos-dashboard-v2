@@ -488,7 +488,7 @@ ventas_file = st.sidebar.file_uploader(
 
 gastos_file = st.sidebar.file_uploader(
     "Subir archivo Gastos",
-    type=["xlsx"],
+    type=["xls"],
     key="gastos_upload"
 )
 
