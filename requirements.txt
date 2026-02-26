@@ -5,4 +5,5 @@ openpyxl
 xlrd>=2.0.1
 sqlalchemy
 kaleido
+xlsxwriter
 #pdfkit
