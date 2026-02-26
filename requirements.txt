@@ -5,4 +5,4 @@ openpyxl
 xlrd==1.2.0
 sqlalchemy
 kaleido
-pdfkit
+#pdfkit
