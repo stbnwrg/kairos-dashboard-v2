@@ -462,7 +462,7 @@ def generar_pdf_html(
 col1, col2, col3 = st.columns([1, 4, 1])
 
 with col1:
-    st.image(os.path.join(BASE_DIR, "assets", "logo_kairos.jpg"), width=220)
+    st.image(os.path.join(BASE_DIR, "assets", "logo_kairos-2.jpg"), width=220)
 
 with col2:
     st.markdown("<h1 style='text-align:center;margin-bottom:0;'>Café Kairos</h1>", unsafe_allow_html=True)
@@ -645,16 +645,16 @@ else:
 # ======================================================
 ventas_total = float(ventas_f["total"].sum()) if "total" in ventas_f.columns else 0.0
 
-# Si el ETL está OK, tenemos grupo_3: COSTO VARIABLE / COSTO FIJO / INVERSION
-if "grupo_3" in gastos_f.columns and "total" in gastos_f.columns:
-    costos_variables = float(gastos_f[gastos_f["grupo_3"] == "COSTO VARIABLE"]["total"].sum())
-    costos_fijos = float(gastos_f[gastos_f["grupo_3"] == "COSTO FIJO"]["total"].sum())
-    inversion = float(gastos_f[gastos_f["grupo_3"] == "INVERSION"]["total"].sum())
+# Si el ETL está OK, tenemos clasificacion: OPEX_VARIABLE / OPEX_FIJO / CAPEX
+if "clasificacion" in gastos_f.columns and "total" in gastos_f.columns:
+    costos_variables = float(gastos_f[gastos_f["clasificacion"] == "OPEX_VARIABLE"]["total"].sum())
+    costos_fijos = float(gastos_f[gastos_f["clasificacion"] == "OPEX_FIJO"]["total"].sum())
+    inversion = float(gastos_f[gastos_f["clasificacion"] == "CAPEX"]["total"].sum())
 else:
     # fallback ultra defensivo
     costos_variables = float(gastos_f["total"].sum()) if "total" in gastos_f.columns else 0.0
     costos_fijos = 0.0
-    inversion = 0.0
+    CAPEX = 0.0
 
 ebit = ventas_total - costos_variables - costos_fijos
 
@@ -668,7 +668,7 @@ margen_operacional = (ebit / ventas_total) if ventas_total else 0.0
 # KPIs (Operativo) + KPI Inversión separado
 # ======================================================
 
-# ... (tu cálculo de ventas_total, costos_variables, costos_fijos, inversion, ebit, etc. queda igual)
+# ... (tu cálculo de ventas_total, costos_variables, costos_fijos, CAPEX, ebit, etc. queda igual)
 
 st.markdown("""
 <style>
@@ -717,7 +717,7 @@ kpis = [
     ("Costos Variables", fmt_money(costos_variables)),
     ("Costos Fijos", fmt_money(costos_fijos)),
     ("Margen Operacional", f"{margen_operacional:.1%}"),
-    ("Inversión (Implementación)", fmt_money(inversion)),
+    ("Inversión (Implementación)", fmt_money(CAPEX)),
 ]
 
 cards_html = '<div class="kpi-row">' + "".join(
@@ -807,7 +807,7 @@ ebit_actual = ebit
 gastos_prev = gastos[
     (gastos["fecha"].dt.year.isin(years_prev)) &
     (gastos["fecha"].dt.month.isin(months_sel)) &
-    (gastos["grupo_3"] != "INVERSION")
+    (gastos["clasificacion"] != "CAPEX")
 ]
 
 ventas_prev_ebit = ventas[prev_mask]["total"].sum()
@@ -838,8 +838,10 @@ with col_graf1:
         ventas_mensual = pd.Series(dtype=float)
 
     if "fecha" in gastos.columns and "total" in gastos.columns:
-        if "grupo_3" in gastos.columns:
-            gastos_base = gastos[gastos["grupo_3"] != "INVERSION"]
+        if "clasificacion" in gastos.columns:
+            gastos_base = gastos[
+                ~gastos["clasificacion"].isin(["CAPEX", "PRE_OPERACION"])
+    ]
         else:
             gastos_base = gastos
         gastos_mensual = gastos_base.groupby(
@@ -1050,12 +1052,12 @@ with tab_c:
         if "total" not in dfc.columns:
             st.warning("No encuentro columna 'total' en fact_gastos.")
         else:
-            show_inversion_detail = st.toggle(
+            show_CAPEX_detail = st.toggle(
                 "Mostrar detalle de inversión (implementación)",
                 value=False
             )
 
-            available_groups = [c for c in ["grupo_1", "grupo_2", "grupo_3", "tipo"] if c in dfc.columns]
+            available_groups = [c for c in ["grupo_1", "grupo_2", "clasificacion", "tipo"] if c in dfc.columns]
 
             group_col = st.radio(
                 "Agrupar costos por",
@@ -1071,13 +1073,15 @@ with tab_c:
 
             df_oper = dfc.copy()
 
-            if "grupo_3" in df_oper.columns:
-                df_oper = df_oper[df_oper["grupo_3"] != "INVERSION"]
+            if "clasificacion" in df_oper.columns:
+                df_oper = df_oper[
+                    ~df_oper["clasificacion"].isin(["CAPEX", "PRE_OPERACION"])
+            ]
 
                 if tipo == "Solo Variables":
-                    df_oper = df_oper[df_oper["grupo_3"] == "COSTO VARIABLE"]
+                    df_oper = df_oper[df_oper["clasificacion"] == "OPEX_VARIABLE"]
                 elif tipo == "Solo Fijos":
-                    df_oper = df_oper[df_oper["grupo_3"] == "COSTO FIJO"]
+                    df_oper = df_oper[df_oper["clasificacion"] == "OPEX_FIJO"]
 
             costos_grp = (
                 df_oper.groupby(group_col)["total"]
@@ -1111,7 +1115,7 @@ with tab_c:
             with col_table_c:
                 st.markdown("**Detalle (Top 50 - operativo, sin inversión)**")
 
-                cols_to_show = list(dict.fromkeys([group_col, "total", "fecha", "tipo", "grupo_3"]))
+                cols_to_show = list(dict.fromkeys([group_col, "total", "fecha", "tipo", "clasificacion"]))
 
                 detalle_costos = (
                     df_oper[[c for c in cols_to_show if c in df_oper.columns]]
@@ -1160,10 +1164,10 @@ with tab_c:
                 )
 
             # ================= INVERSIÓN =================
-            if show_inversion_detail and "grupo_3" in dfc.columns:
+            if show_CAPEX_detail and "clasificacion" in dfc.columns:
                 st.markdown("**Detalle Inversión (Implementación)**")
 
-                dfi = dfc[dfc["grupo_3"] == "INVERSION"].copy()
+                dfi = dfc[dfc["clasificacion"] == "CAPEX"].copy()
 
                 if dfi.empty:
                     st.info("No hay inversión para el filtro actual.")
@@ -1336,10 +1340,10 @@ rows = {
 for p in periodos:
     v = sum_by_period(ventas, p, col="total")
 
-    if "grupo_3" in gastos.columns:
-        inv = sum_by_period(gastos, p, mask=lambda d: d["grupo_3"] == "INVERSION", col="total")
-        cv = sum_by_period(gastos, p, mask=lambda d: d["grupo_3"] == "COSTO VARIABLE", col="total")
-        cf = sum_by_period(gastos, p, mask=lambda d: d["grupo_3"] == "COSTO FIJO", col="total")
+    if "clasificacion" in gastos.columns:
+        inv = sum_by_period(gastos, p, mask=lambda d: d["clasificacion"] == "CAPEX", col="total")
+        cv = sum_by_period(gastos, p, mask=lambda d: d["clasificacion"] == "OPEX_VARIABLE", col="total")
+        cf = sum_by_period(gastos, p, mask=lambda d: d["clasificacion"] == "OPEX_FIJO", col="total")
     else:
         inv = 0.0
         cv = sum_by_period(gastos, p, col="total")

@@ -64,8 +64,9 @@ def limpiar_fecha(col):
 # =====================================================
 # GASTOS
 # =====================================================
-
 def procesar_gastos():
+
+    FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
 
     df = pd.read_excel(RUTA_GASTOS, sheet_name="Gastos", skiprows=1)
     df = limpiar_columnas(df)
@@ -113,13 +114,18 @@ def procesar_gastos():
     df["grupo_2"] = df.apply(grupo_2, axis=1)
 
     # -----------------------
-    # GRUPO 3 (clasificación financiera)
+    # CLASIFICACIÓN FINANCIERA (NUEVA)
     # -----------------------
-    def grupo_3(row):
+    def clasificacion_financiera(row):
+        # 1) CAPEX (inversión real)
+        if row["tipo"] == "IMPLEMENTACIÓN":
+            return "CAPEX"
 
-        if row["fecha"] < pd.Timestamp("2025-10-01"):
-            return "INVERSION"
+        # 2) PRE-OPERACIÓN (antes de abrir)
+        if row["fecha"] < FECHA_INICIO_OPERACION:
+            return "PRE_OPERACION"
 
+        # 3) Variables operativas
         if row["tipo"] in [
             "COMISIONES VENTAS",
             "PIZZA",
@@ -128,22 +134,14 @@ def procesar_gastos():
             "TÉ",
             "PASTELERÍA"
         ]:
-            return "COSTO VARIABLE"
+            return "OPEX_VARIABLE"
 
-        if row["tipo"] == "IMPLEMENTACIÓN":
-            return "INVERSION"
+        # 4) Fijos operativos
+        return "OPEX_FIJO"
 
-        return "COSTO FIJO"
+    df["clasificacion"] = df.apply(clasificacion_financiera, axis=1)
 
-    df["grupo_3"] = df.apply(grupo_3, axis=1)
-
-    # -----------------------
-    # FECHA 2 (igual lógica Excel)
-    # -----------------------
-    df["fecha_2"] = df.apply(
-        lambda r: pd.Timestamp("2025-09-30") if r["grupo_3"] == "INVERSION" else r["fecha"],
-        axis=1
-    )
+    # ✅ OJO: eliminamos fecha_2 porque dependía de clasificacion y ya no aplica.
 
     return df.reset_index(drop=True)
 
@@ -263,9 +261,6 @@ def crear_calendario(df_ventas, df_gastos):
 
     return calendario
 
-# =====================================================
-# MAIN
-# =====================================================
 
 # =====================================================
 # MAIN
