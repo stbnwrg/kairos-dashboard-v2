@@ -243,7 +243,7 @@ else:
 
             st.success("Base generada correctamente. Recargando...")
 
-            st.experimental_rerun()
+            st.rerun()
 
     st.stop()
 
