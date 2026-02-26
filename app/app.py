@@ -645,29 +645,59 @@ else:
     items_f = items_f.iloc[0:0]
 
 # ======================================================
-# KPIs (Operativo) + KPI Inversión separado
-# Implementación/Inversión NO entra al operativo
+# KPIs Operativos
 # ======================================================
+
 ventas_total = float(ventas_f["total"].sum()) if "total" in ventas_f.columns else 0.0
 
-# Si el ETL está OK, tenemos clasificacion: OPEX_VARIABLE / OPEX_FIJO / CAPEX
 if "clasificacion" in gastos_f.columns and "total" in gastos_f.columns:
-    costos_variables = float(gastos_f[gastos_f["clasificacion"] == "OPEX_VARIABLE"]["total"].sum())
-    costos_fijos = float(gastos_f[gastos_f["clasificacion"] == "OPEX_FIJO"]["total"].sum())
-    inversion = float(gastos_f[gastos_f["clasificacion"] == "CAPEX"]["total"].sum())
+    costos_variables = float(
+        gastos_f[gastos_f["clasificacion"] == "OPEX_VARIABLE"]["total"].sum()
+    )
+    costos_fijos = float(
+        gastos_f[gastos_f["clasificacion"] == "OPEX_FIJO"]["total"].sum()
+    )
+    inversion_periodo = float(
+        gastos_f[gastos_f["clasificacion"] == "CAPEX"]["total"].sum()
+    )
 else:
-    # fallback ultra defensivo
     costos_variables = float(gastos_f["total"].sum()) if "total" in gastos_f.columns else 0.0
     costos_fijos = 0.0
-    inversion = 0.0
+    inversion_periodo = 0.0
 
-ebit = ventas_total - costos_variables - costos_fijos
 
-# EBITDA: sin depreciación/amortización cargada, asumimos 0 (quedará igual a EBIT)
-ebitda = ebit
+# ======================================================
+# Inversión y Pre-Operación HISTÓRICA
+# ======================================================
+
+if "clasificacion" in gastos.columns and "total" in gastos.columns:
+    inversion_total = float(
+        gastos[gastos["clasificacion"] == "CAPEX"]["total"].sum()
+    )
+    pre_operacion_total = float(
+        gastos[gastos["clasificacion"] == "PRE_OPERACION"]["total"].sum()
+    )
+else:
+    inversion_total = 0.0
+    pre_operacion_total = 0.0
+
+capital_total_invertido = inversion_total + pre_operacion_total
+
+# ================================
+# MÉTRICAS FINANCIERAS CLAVE
+# ================================
+
+margen_bruto_valor = ventas_total - costos_variables
+margen_bruto = (margen_bruto_valor / ventas_total) if ventas_total else 0.0
+
+ebit = margen_bruto_valor - costos_fijos
+ebitda = ebit  # no estamos depreciando aún
+
+margen_ebitda = (ebitda / ventas_total) if ventas_total else 0.0
+margen_operacional = (ebit / ventas_total) if ventas_total else 0.0
+
 impuestos = (ebit * TAX_RATE) if ebit > 0 else 0.0
 resultado_neto = ebit - impuestos
-margen_operacional = (ebit / ventas_total) if ventas_total else 0.0
 
 # ======================================================
 # KPIs (Operativo) + KPI Inversión separado
@@ -719,10 +749,10 @@ st.markdown("""
 
 kpis = [
     ("Ventas", fmt_money(ventas_total)),
-    ("Costos Variables", fmt_money(costos_variables)),
-    ("Costos Fijos", fmt_money(costos_fijos)),
+    ("Margen Bruto", f"{margen_bruto:.1%}"),
+    ("EBITDA", f"{margen_ebitda:.1%}"),
     ("Margen Operacional", f"{margen_operacional:.1%}"),
-    ("Inversión (Implementación)", fmt_money(inversion)),
+    ("Inversión (Implementación)", fmt_money(inversion_periodo)),
 ]
 
 cards_html = '<div class="kpi-row">' + "".join(
@@ -732,6 +762,32 @@ cards_html = '<div class="kpi-row">' + "".join(
 st.markdown(cards_html, unsafe_allow_html=True)
 
 st.divider()
+
+# ======================================================
+# CAPITAL INICIAL DEL PROYECTO
+# ======================================================
+
+
+st.divider()
+st.subheader("Capital Inicial del Proyecto")
+
+col_c1, col_c2, col_c3 = st.columns(3)
+
+col_c1.metric(
+    "Inversión (CAPEX)",
+    fmt_money(inversion_total)
+)
+
+col_c2.metric(
+    "Gasto Pre-Operacional",
+    fmt_money(pre_operacion_total)
+)
+
+col_c3.metric(
+    "Capital Total Invertido",
+    fmt_money(capital_total_invertido)
+)
+
 
 # ======================================================
 # Semáforo Margen
@@ -812,7 +868,7 @@ ebit_actual = ebit
 gastos_prev = gastos[
     (gastos["fecha"].dt.year.isin(years_prev)) &
     (gastos["fecha"].dt.month.isin(months_sel)) &
-    (gastos["clasificacion"] != "CAPEX")
+    (gastos["clasificacion"].isin(["OPEX_FIJO","OPEX_VARIABLE"]))
 ]
 
 ventas_prev_ebit = ventas[prev_mask]["total"].sum()
@@ -826,6 +882,52 @@ col_y2.metric(
     fmt_money(ebit_actual),
     f"{crec_ebit:.1%}"
 )
+
+# ======================================================
+# FLUJO ACUMULADO VS CAPITAL INVERTIDO
+# ======================================================
+
+# Solo operación real (desde inicio operación)
+flujo_df = gastos[
+    gastos["clasificacion"].isin(["OPEX_VARIABLE", "OPEX_FIJO"])
+].copy()
+
+ventas_df = ventas.copy()
+
+# Agrupar por mes
+ventas_m = (
+    ventas_df.groupby([ventas_df["fecha"].dt.to_period("M")])["total"]
+    .sum()
+    .reset_index()
+)
+
+costos_m = (
+    flujo_df.groupby([flujo_df["fecha"].dt.to_period("M")])["total"]
+    .sum()
+    .reset_index()
+)
+
+ventas_m.rename(columns={"fecha": "periodo", "total": "ventas"}, inplace=True)
+costos_m.rename(columns={"fecha": "periodo", "total": "costos"}, inplace=True)
+
+flujo_m = pd.merge(ventas_m, costos_m, on="periodo", how="left")
+flujo_m["costos"] = flujo_m["costos"].fillna(0)
+
+flujo_m["flujo_operativo"] = flujo_m["ventas"] - flujo_m["costos"]
+
+# Convertir periodo a fecha real
+flujo_m["fecha"] = flujo_m["periodo"].dt.to_timestamp()
+
+# Ordenar
+flujo_m = flujo_m.sort_values("fecha")
+
+# Flujo acumulado
+flujo_m["flujo_acumulado"] = flujo_m["flujo_operativo"].cumsum()
+
+# Recuperación real descontando capital inicial
+flujo_m["flujo_vs_inversion"] = flujo_m["flujo_acumulado"] - capital_total_invertido
+
+
 # ======================================================
 # RESULTADO MENSUAL (HISTÓRICO) - NO FILTRADO
 # Excluye inversión del costo (operativo)
@@ -1261,6 +1363,51 @@ fig_acum.update_layout(
 )
 st.plotly_chart(fig_acum, use_container_width=True)
 
+# Grafico de recuperación de la inversión
+
+import plotly.graph_objects as go
+
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=flujo_m["fecha"],
+    y=flujo_m["flujo_acumulado"],
+    mode="lines+markers",
+    name="Flujo Operativo Acumulado"
+))
+
+fig.add_trace(go.Scatter(
+    x=flujo_m["fecha"],
+    y=[capital_total_invertido]*len(flujo_m),
+    mode="lines",
+    name="Capital Invertido",
+    line=dict(dash="dash")
+))
+
+fig.add_trace(go.Scatter(
+    x=flujo_m["fecha"],
+    y=flujo_m["flujo_vs_inversion"],
+    mode="lines",
+    name="Flujo Neto vs Inversión"
+))
+
+fig.update_layout(
+    title="Flujo Acumulado vs Capital Invertido",
+    xaxis_title="Fecha",
+    yaxis_title="Monto ($)",
+    template="plotly_white"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# Indicador automatico de recuperación
+
+recuperado = flujo_m["flujo_vs_inversion"].iloc[-1]
+
+if recuperado >= 0:
+    st.success("✅ Proyecto recuperó la inversión inicial.")
+else:
+    st.warning(f"⚠️ Faltan {fmt_money(abs(recuperado))} para recuperar la inversión.")
 # ======================================================
 # ESTADO DE RESULTADOS (FILTRO) - MÁS FINANCIERO
 # Sin inversión
