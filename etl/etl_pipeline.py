@@ -118,7 +118,14 @@ def procesar_gastos():
     # -----------------------
     def clasificacion_financiera(row):
         # 1) CAPEX (inversión real)
-        if row["tipo"] == "IMPLEMENTACIÓN":
+        CAPEX_PROVEEDORES = [
+    "CHILENA DE CAFES SpA",
+    "CONSTRUCTORA CELSA SPA",
+    "FABRICA DE MUEBLES INTERKITT LIMITADA",
+    "BOZZO S.A."
+]
+
+        if row["comentario"] in CAPEX_PROVEEDORES:
             return "CAPEX"
 
         # 2) PRE-OPERACIÓN (antes de abrir)
