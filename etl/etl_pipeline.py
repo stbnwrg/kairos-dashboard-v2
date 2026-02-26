@@ -23,16 +23,16 @@ DB_PATH = os.path.join(PROJECT_ROOT, "database", "kairos.db")
 # =====================================================
 
 
-if not os.path.exists(RUTA_GASTOS) or not os.path.exists(RUTA_VENTAS):
-    print("No hay archivos cargados aún.")
-    exit()
+#if not os.path.exists(RUTA_GASTOS) or not os.path.exists(RUTA_VENTAS):
+#    print("No hay archivos cargados aún.")
+#    exit()
 # =====================================================
 # VALIDACIÓN ARCHIVOS
 # =====================================================
 
-if not os.path.exists(RUTA_GASTOS) or not os.path.exists(RUTA_VENTAS):
-    print("No hay archivos cargados aún.")
-    exit()
+#if not os.path.exists(RUTA_GASTOS) or not os.path.exists(RUTA_VENTAS):
+#    print("No hay archivos cargados aún.")
+#    exit()
 
 
 # =====================================================
@@ -295,6 +295,10 @@ def main():
 
     print("ETL COMPLETADO CORRECTAMENTE.")
 
+#crear tablas
+#insertar datos
+def run_etl():
+    main()
 
 if __name__ == "__main__":
     main()

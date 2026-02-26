@@ -23,6 +23,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 DB_PATH = os.path.join(PROJECT_ROOT, "database", "kairos.db")
 
+# Crear carpeta database si no existe (necesario en Render)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+
 MESES = {
     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
     5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
@@ -175,6 +179,16 @@ div[data-testid="stDataFrame"] th {{
 # ======================================================
 # DATA
 # ======================================================
+
+
+# Ejecutar ETL si la DB no existe
+def ensure_database():
+    if not os.path.exists(DB_PATH):
+        st.warning("Base de datos no encontrada. Ejecutando ETL inicial...")
+        from etl.etl_pipeline import run_etl
+        run_etl()
+ensure_database()
+
 @st.cache_data
 def load_data():
     conn = sqlite3.connect(DB_PATH)
