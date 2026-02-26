@@ -238,6 +238,9 @@ else:
                 f.write(uploaded_ventas.getbuffer())
 
             # Ejecutar ETL
+            import sys
+            sys.path.append(PROJECT_ROOT)
+
             from etl.etl_pipeline import run_etl
             run_etl()
 
