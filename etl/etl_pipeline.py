@@ -12,12 +12,19 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
 # Carpeta uploads (creada dinámicamente desde app)
 UPLOADS_DIR = os.path.join(PROJECT_ROOT, "uploads")
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
 RUTA_GASTOS = os.path.join(UPLOADS_DIR, "gastos.xls")
 RUTA_VENTAS = os.path.join(UPLOADS_DIR, "ventas.xlsx")
-RUTA_COSTO_UNITARIO = os.path.join(UPLOADS_DIR, "costo_unitario.xlsx")
 
-
+# costo unitario: aceptar "costo_unitario.xlsx" y "costo unitario.xlsx"
+COSTO_CANDIDATOS = [
+    os.path.join(UPLOADS_DIR, "costo_unitario.xlsx"),
+    os.path.join(UPLOADS_DIR, "costo unitario.xlsx"),
+    os.path.join(DATA_DIR, "costo_unitario.xlsx"),
+    os.path.join(DATA_DIR, "costo unitario.xlsx"),
+]
+RUTA_COSTO = next((p for p in COSTO_CANDIDATOS if os.path.exists(p)), COSTO_CANDIDATOS[0])
 
 # =====================================================
 # VALIDA RUTAS
@@ -251,42 +258,53 @@ def procesar_secciones():
 # PROCESAR COSTOS UNITARIOS
 # =====================================================
 
-def procesar_costos_unitarios(df_secciones_ref: pd.DataFrame | None = None):
+def procesar_costo_unitario():
 
-    if not os.path.exists(RUTA_COSTO_UNITARIO):
-        return pd.DataFrame()
+    if not os.path.exists(RUTA_COSTO):
+        print("No existe archivo costo unitario.xlsx")
+        return pd.DataFrame(columns=["seccion", "item", "costo unitario"])
 
-    # La plantilla viene con hoja "Items conteo"
-    df = pd.read_excel(RUTA_COSTO_UNITARIO, sheet_name="Items conteo")
+    # NO forzamos nombre de hoja
+    try:
+        df = pd.read_excel(RUTA_COSTO, sheet_name="Items conteo")
+    except Exception:
+    # fallback: primera hoja si el nombre cambia
+        df = pd.read_excel(RUTA_COSTO)
+
+    print("Primeras filas crudas:")
+    print(df.head())
+
     df = limpiar_columnas(df)
 
-    # Normalizamos nombres esperados
-    # Esperamos al menos: seccion, item, costo_unitario (si tu excel usa otro nombre, lo mapeamos aquí)
-    rename_map = {}
-    for c in df.columns:
-        if c in ["costo_unitario", "costo", "costo_unit", "costo_unitario_$"]:
-            rename_map[c] = "costo_unitario"
-        if c in ["seccion", "sección"]:
-            rename_map[c] = "seccion"
-    df = df.rename(columns=rename_map)
+    print("Columnas detectadas:", df.columns.tolist())
 
-    # Validación mínima
-    needed = {"seccion", "item", "costo_unitario"}
-    if not needed.issubset(set(df.columns)):
-        # Devuelve vacío para no romper el pipeline
-        return pd.DataFrame()
+    # Asegurar encabezados correctos
+    if "costo_unitario" not in df.columns:
+        for c in df.columns:
+            if "costo" in c:
+                df = df.rename(columns={c: "costo_unitario"})
+                break
 
-    df["costo_unitario"] = pd.to_numeric(df["costo_unitario"], errors="coerce")
-    df = df.dropna(subset=["seccion", "item", "costo_unitario"])
+    columnas_necesarias = {"seccion", "item", "costo_unitario"}
+    faltantes = columnas_necesarias - set(df.columns)
 
-    # Merge para traer grupo_1 / grupo_2 desde dim_secciones
-    if df_secciones_ref is not None and (not df_secciones_ref.empty) and "seccion" in df_secciones_ref.columns:
-        cols = [c for c in ["seccion", "grupo_1", "grupo_2"] if c in df_secciones_ref.columns]
-        df = df.merge(
-            df_secciones_ref[cols].drop_duplicates("seccion"),
-            on="seccion",
-            how="left"
-        )
+    if faltantes:
+        print("Faltan columnas:", faltantes)
+        return pd.DataFrame(columns=["seccion", "item", "costo_unitario"])
+
+    # Limpieza datos
+    df["seccion"] = df["seccion"].astype(str).str.strip()
+    df["item"] = df["item"].astype(str).str.strip()
+
+    df["costo_unitario"] = pd.to_numeric(
+        df["costo_unitario"],
+        errors="coerce"
+    ).fillna(0)
+
+    df = df.dropna(subset=["seccion", "item"])
+    df = df.drop_duplicates(subset=["seccion", "item"], keep="last")
+
+    print("Filas finales costo_unitario:", len(df))
 
     return df.reset_index(drop=True)
 # =====================================================
@@ -310,48 +328,6 @@ def crear_calendario(df_ventas, df_gastos):
     calendario["dia"] = calendario["fecha"].dt.day
 
     return calendario
-
-# =====================================================
-# COSTO UNITARIO (archivo cliente)
-# =====================================================
-def procesar_costo_unitario(df_secciones_ref=None):
-    """
-    Lee uploads/costo_unitario.xlsx
-    Espera columnas tipo: seccion | item | costo_unitario
-    """
-    if not os.path.exists(RUTA_COSTO_UNITARIO):
-        # tabla vacía (no rompe el ETL)
-        return pd.DataFrame(columns=["seccion", "item", "costo_unitario"])
-
-    df = pd.read_excel(RUTA_COSTO_UNITARIO)
-    df = limpiar_columnas(df)
-
-    # Normalizar nombres esperados (por si vienen con variaciones)
-    # ejemplo: "costo_unitario", "costo unitario", etc.
-    if "costo_unitario" not in df.columns:
-        # intenta detectar columna de costo por heurística
-        for c in df.columns:
-            if "costo" in c and "unit" in c:
-                df = df.rename(columns={c: "costo_unitario"})
-                break
-
-    # Validaciones mínimas
-    needed = {"seccion", "item", "costo_unitario"}
-    missing = needed - set(df.columns)
-    if missing:
-        raise ValueError(f"Faltan columnas en costo_unitario.xlsx: {missing}")
-
-    df["seccion"] = df["seccion"].astype(str).str.strip()
-    df["item"] = df["item"].astype(str).str.strip()
-    df["costo_unitario"] = pd.to_numeric(df["costo_unitario"], errors="coerce")
-
-    df = df.dropna(subset=["seccion", "item", "costo_unitario"])
-    df = df[df["costo_unitario"] >= 0]
-
-    # Deduplicar: si el cliente repite item, nos quedamos con el último
-    df = df.drop_duplicates(subset=["seccion", "item"], keep="last").reset_index(drop=True)
-
-    return df
 
 
 # =====================================================
@@ -421,19 +397,17 @@ def main(run_gastos: bool = True, run_ventas: bool = True, run_costos: bool = Tr
     if run_costos:
         print("Procesando Costo Unitario (cliente)...")
 
-        # necesitamos dim_secciones para traer grupo_1/grupo_2 si aplica
-        if df_secciones is None:
-            try:
-                df_secciones = pd.read_sql("SELECT * FROM dim_secciones", engine)
-            except Exception:
-                df_secciones = pd.DataFrame()
-
-        df_costo_unitario = procesar_costo_unitario(df_secciones_ref=df_secciones)
+        df_costo_unitario = procesar_costo_unitario()
 
         if not df_costo_unitario.empty:
-            df_costo_unitario.to_sql("dim_costos_unitarios", engine, if_exists="replace", index=False)
+            df_costo_unitario.to_sql(
+                "dim_costos_unitarios",
+                engine,
+                if_exists="replace",
+                index=False
+            )
         else:
-            print("⚠️ No se generó dim_costos_unitarios (archivo vacío o columnas inválidas).")
+            print("⚠️ No se generó dim_costos_unitarios.")
 
     print("ETL COMPLETADO CORRECTAMENTE.")
 

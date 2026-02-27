@@ -499,7 +499,7 @@ ventas_file = st.sidebar.file_uploader(
 
 gastos_file = st.sidebar.file_uploader(
     "Subir archivo Gastos",
-    type=["xls", "xlsx"],
+    type=["xls"],
     key="gastos_upload"
 )
 
@@ -509,54 +509,41 @@ costo_file = st.sidebar.file_uploader(
     key="costo_upload"
 )
 
-# Detectar si ya hay data cargada (base “viva”)
-has_data = (not ventas.empty) and (not gastos.empty)
-
 if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
 
-    # 1) Si NO hay data, exigimos Ventas + Gastos (costo unitario opcional)
-    if not has_data and (ventas_file is None or gastos_file is None):
-        st.sidebar.error("Primera carga: debes subir Ventas y Gastos (Costo unitario es opcional).")
-        st.stop()
+    # Si no subiste nada, no hacemos show
+    if ventas_file is None and gastos_file is None and costo_file is None:
+        st.sidebar.warning("Sube al menos 1 archivo para actualizar.")
+    else:
+        with st.spinner("Procesando archivos..."):
 
-    # 2) Si ya hay data, permitimos update parcial (al menos 1 archivo)
-    if has_data and (ventas_file is None and gastos_file is None and costo_file is None):
-        st.sidebar.warning("Sube al menos un archivo para actualizar (o no hago nada 😄).")
-        st.stop()
+            os.makedirs("uploads", exist_ok=True)
 
-    with st.spinner("Procesando archivos..."):
+            args = ["python", "etl/etl_pipeline.py"]
 
-        uploads_dir = os.path.join(PROJECT_ROOT, "uploads")
-        os.makedirs(uploads_dir, exist_ok=True)
+            if ventas_file is not None:
+                ventas_path = os.path.join("uploads", "ventas.xlsx")
+                with open(ventas_path, "wb") as f:
+                    f.write(ventas_file.getbuffer())
+                args += ["--update-ventas"]
 
-        # Guardar SOLO lo que se subió (lo demás se mantiene)
-        args = ["python", "etl/etl_pipeline.py"]
+            if gastos_file is not None:
+                gastos_path = os.path.join("uploads", "gastos.xls")
+                with open(gastos_path, "wb") as f:
+                    f.write(gastos_file.getbuffer())
+                args += ["--update-gastos"]
 
-        if ventas_file is not None:
-            ventas_path = os.path.join(uploads_dir, "ventas.xlsx")
-            with open(ventas_path, "wb") as f:
-                f.write(ventas_file.getbuffer())
-            args.append("--ventas")
+            if costo_file is not None:
+                costo_path = os.path.join("uploads", "costo_unitario.xlsx")
+                with open(costo_path, "wb") as f:
+                    f.write(costo_file.getbuffer())
+                args += ["--update-costo"]
 
-        if gastos_file is not None:
-            # Conservamos nombre estándar
-            gastos_path = os.path.join(uploads_dir, "gastos.xls")
-            with open(gastos_path, "wb") as f:
-                f.write(gastos_file.getbuffer())
-            args.append("--gastos")
+            subprocess.run(args, check=True)
 
-        if costo_file is not None:
-            costo_path = os.path.join(uploads_dir, "costo_unitario.xlsx")
-            with open(costo_path, "wb") as f:
-                f.write(costo_file.getbuffer())
-            args.append("--costos")
-
-        # Ejecutar ETL con flags (update parcial)
-        subprocess.run(args, check=True)
-
-        st.cache_data.clear()
-        st.success("Datos actualizados correctamente.")
-        st.rerun()
+            st.cache_data.clear()
+            st.success("Datos actualizados correctamente.")
+            st.rerun()
 
 # ======================================================
 # CALENDARIO REAL (sin inventar meses)
