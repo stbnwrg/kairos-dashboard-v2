@@ -248,6 +248,48 @@ def procesar_secciones():
     return df.reset_index(drop=True)
 
 # =====================================================
+# PROCESAR COSTOS UNITARIOS
+# =====================================================
+
+def procesar_costos_unitarios(df_secciones_ref: pd.DataFrame | None = None):
+
+    if not os.path.exists(RUTA_COSTO_UNITARIO):
+        return pd.DataFrame()
+
+    # La plantilla viene con hoja "Items conteo"
+    df = pd.read_excel(RUTA_COSTO_UNITARIO, sheet_name="Items conteo")
+    df = limpiar_columnas(df)
+
+    # Normalizamos nombres esperados
+    # Esperamos al menos: seccion, item, costo_unitario (si tu excel usa otro nombre, lo mapeamos aquí)
+    rename_map = {}
+    for c in df.columns:
+        if c in ["costo_unitario", "costo", "costo_unit", "costo_unitario_$"]:
+            rename_map[c] = "costo_unitario"
+        if c in ["seccion", "sección"]:
+            rename_map[c] = "seccion"
+    df = df.rename(columns=rename_map)
+
+    # Validación mínima
+    needed = {"seccion", "item", "costo_unitario"}
+    if not needed.issubset(set(df.columns)):
+        # Devuelve vacío para no romper el pipeline
+        return pd.DataFrame()
+
+    df["costo_unitario"] = pd.to_numeric(df["costo_unitario"], errors="coerce")
+    df = df.dropna(subset=["seccion", "item", "costo_unitario"])
+
+    # Merge para traer grupo_1 / grupo_2 desde dim_secciones
+    if df_secciones_ref is not None and (not df_secciones_ref.empty) and "seccion" in df_secciones_ref.columns:
+        cols = [c for c in ["seccion", "grupo_1", "grupo_2"] if c in df_secciones_ref.columns]
+        df = df.merge(
+            df_secciones_ref[cols].drop_duplicates("seccion"),
+            on="seccion",
+            how="left"
+        )
+
+    return df.reset_index(drop=True)
+# =====================================================
 # CALENDARIO
 # =====================================================
 
@@ -272,7 +314,7 @@ def crear_calendario(df_ventas, df_gastos):
 # =====================================================
 # COSTO UNITARIO (archivo cliente)
 # =====================================================
-def procesar_costo_unitario():
+def procesar_costo_unitario(df_secciones_ref=None):
     """
     Lee uploads/costo_unitario.xlsx
     Espera columnas tipo: seccion | item | costo_unitario
@@ -313,48 +355,104 @@ def procesar_costo_unitario():
 
 
 # =====================================================
-# MAIN
+# MAIN (soporta updates parciales)
 # =====================================================
 
-def main():
+import argparse
 
-    print("Procesando Gastos...")
-    df_gastos = procesar_gastos()
+def main(run_gastos: bool = True, run_ventas: bool = True, run_costos: bool = True):
 
-    print("Procesando Transacciones...")
-    df_ventas = procesar_transacciones()
-
-    print("Procesando Items...")
-    df_items = procesar_items()
-
-    print("Procesando Secciones...")
-    df_secciones = procesar_secciones()
-
-    print("Procesando Costo Unitario (cliente).")
-    df_costo_unitario = procesar_costo_unitario()
-
-    print("Creando Calendario...")
-    df_calendario = crear_calendario(df_ventas, df_gastos)
-
-    print("Guardando en PostgreSQL (Neon)...")
-
+    print("Conectando a PostgreSQL (Neon)...")
     DATABASE_URL = os.environ["DATABASE_URL"]
-
     engine = create_engine(DATABASE_URL)
 
-    df_gastos.to_sql("fact_gastos", engine, if_exists="replace", index=False)
-    df_ventas.to_sql("fact_ventas", engine, if_exists="replace", index=False)
-    df_items.to_sql("fact_items", engine, if_exists="replace", index=False)
-    df_secciones.to_sql("dim_secciones", engine, if_exists="replace", index=False)
-    df_calendario.to_sql("dim_calendario", engine, if_exists="replace", index=False)
-    df_costo_unitario.to_sql("dim_costos_unitarios", engine, if_exists="replace", index=False)
+    df_gastos = None
+    df_ventas = None
+    df_items = None
+    df_secciones = None
+
+    # -------------------------
+    # GASTOS
+    # -------------------------
+    if run_gastos:
+        print("Procesando Gastos...")
+        df_gastos = procesar_gastos()
+        df_gastos.to_sql("fact_gastos", engine, if_exists="replace", index=False)
+
+    # -------------------------
+    # VENTAS / ITEMS / SECCIONES
+    # -------------------------
+    if run_ventas:
+        print("Procesando Transacciones...")
+        df_ventas = procesar_transacciones()
+
+        print("Procesando Items...")
+        df_items = procesar_items()
+
+        print("Procesando Secciones...")
+        df_secciones = procesar_secciones()
+
+        df_ventas.to_sql("fact_ventas", engine, if_exists="replace", index=False)
+        df_items.to_sql("fact_items", engine, if_exists="replace", index=False)
+        df_secciones.to_sql("dim_secciones", engine, if_exists="replace", index=False)
+
+    # -------------------------
+    # CALENDARIO (si cambió ventas o gastos)
+    # -------------------------
+    if run_ventas or run_gastos:
+        print("Creando Calendario...")
+
+        if df_ventas is None:
+            df_ventas = pd.read_sql("SELECT * FROM fact_ventas", engine)
+            if "fecha" in df_ventas.columns:
+                df_ventas["fecha"] = pd.to_datetime(df_ventas["fecha"], errors="coerce")
+
+        if df_gastos is None:
+            df_gastos = pd.read_sql("SELECT * FROM fact_gastos", engine)
+            if "fecha" in df_gastos.columns:
+                df_gastos["fecha"] = pd.to_datetime(df_gastos["fecha"], errors="coerce")
+
+        df_calendario = crear_calendario(df_ventas, df_gastos)
+        df_calendario.to_sql("dim_calendario", engine, if_exists="replace", index=False)
+
+    # -------------------------
+    # COSTO UNITARIO (cliente)
+    # -------------------------
+    if run_costos:
+        print("Procesando Costo Unitario (cliente)...")
+
+        # necesitamos dim_secciones para traer grupo_1/grupo_2 si aplica
+        if df_secciones is None:
+            try:
+                df_secciones = pd.read_sql("SELECT * FROM dim_secciones", engine)
+            except Exception:
+                df_secciones = pd.DataFrame()
+
+        df_costo_unitario = procesar_costo_unitario(df_secciones_ref=df_secciones)
+
+        if not df_costo_unitario.empty:
+            df_costo_unitario.to_sql("dim_costos_unitarios", engine, if_exists="replace", index=False)
+        else:
+            print("⚠️ No se generó dim_costos_unitarios (archivo vacío o columnas inválidas).")
 
     print("ETL COMPLETADO CORRECTAMENTE.")
 
 
 def run_etl():
-    main()
+    # modo clásico: corre todo
+    main(True, True, True)
+
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ventas", action="store_true")
+    parser.add_argument("--gastos", action="store_true")
+    parser.add_argument("--costos", action="store_true")
+    args = parser.parse_args()
+
+    # si no pasan flags, corre todo
+    if not (args.ventas or args.gastos or args.costos):
+        main(True, True, True)
+    else:
+        main(run_gastos=args.gastos, run_ventas=args.ventas, run_costos=args.costos)
     
