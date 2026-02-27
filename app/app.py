@@ -140,8 +140,10 @@ div[data-testid="stMetric"] {{
   background: #4B2E2B;
   padding: 20px;
   border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.08);
-  text-align: center !important;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }}
 
 div[data-testid="stMetric"] label {{
@@ -1641,62 +1643,80 @@ else:
 st.divider()
 st.subheader("Margen por Categoría (Filtro actual)")
 
-if not items_f.empty and "grupo_1" in items_f.columns:
+st.write("Columnas items_f:", items_f.columns)
+st.write("Registros items_f:", len(items_f))
 
-    val_col = "precio" if "precio" in items_f.columns else "total"
+if not items_f.empty:
 
-    ventas_cat = (
-        items_f.groupby("grupo_1")[val_col]
-        .sum()
-        .reset_index()
-        .rename(columns={val_col: "ventas"})
-    )
+    dfm = items_f.copy()
 
-    # Costos variables distribuidos proporcionalmente
-    if ventas_total > 0:
-        ventas_cat["costos_variables_estimados"] = (
-            ventas_cat["ventas"] / ventas_total
-        ) * costos_variables
+    # Merge con secciones si existe
+    if not secciones.empty and "seccion" in dfm.columns:
+        dfm = dfm.merge(
+            secciones[["seccion", "grupo_1"]],
+            on="seccion",
+            how="left"
+        )
+
+    if "grupo_1" not in dfm.columns:
+        st.info("No existe grupo_1 para calcular margen.")
+
     else:
-        ventas_cat["costos_variables_estimados"] = 0
 
-    ventas_cat["margen_bruto"] = (
-        ventas_cat["ventas"] - ventas_cat["costos_variables_estimados"]
-    )
+        val_col = "precio" if "precio" in dfm.columns else "total"
 
-    ventas_cat["margen_%"] = (
-        ventas_cat["margen_bruto"] / ventas_cat["ventas"]
-    )
+        ventas_cat = (
+            dfm.groupby("grupo_1")[val_col]
+            .sum()
+            .reset_index()
+            .rename(columns={val_col: "ventas"})
+        )
 
-    ventas_cat = ventas_cat.sort_values("margen_%", ascending=False)
+        # Costos variables distribuidos proporcionalmente
+        if ventas_total > 0:
+            ventas_cat["costos_variables_estimados"] = (
+                ventas_cat["ventas"] / ventas_total
+            ) * costos_variables
+        else:
+            ventas_cat["costos_variables_estimados"] = 0
 
-    # Tabla
-    ventas_cat_fmt = ventas_cat.copy()
-    ventas_cat_fmt["ventas"] = ventas_cat_fmt["ventas"].apply(fmt_money)
-    ventas_cat_fmt["costos_variables_estimados"] = ventas_cat_fmt["costos_variables_estimados"].apply(fmt_money)
-    ventas_cat_fmt["margen_bruto"] = ventas_cat_fmt["margen_bruto"].apply(fmt_money)
-    ventas_cat_fmt["margen_%"] = ventas_cat_fmt["margen_%"].apply(lambda x: f"{x:.1%}")
+        ventas_cat["margen_bruto"] = (
+            ventas_cat["ventas"] - ventas_cat["costos_variables_estimados"]
+        )
 
-    st.dataframe(ventas_cat_fmt, use_container_width=True)
+        ventas_cat["margen_%"] = (
+            ventas_cat["margen_bruto"] / ventas_cat["ventas"]
+        )
 
-    # Gráfico ranking
-    fig_margen = px.bar(
-        ventas_cat,
-        x="margen_%",
-        y="grupo_1",
-        orientation="h",
-        color="margen_%",
-        color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"]
-    )
+        ventas_cat = ventas_cat.sort_values("margen_%", ascending=False)
 
-    fig_margen.update_layout(
-        plot_bgcolor=KAIROS_BG,
-        paper_bgcolor=KAIROS_BG,
-        yaxis_title="",
-        xaxis_title="Margen (%)"
-    )
+        # Tabla
+        ventas_cat_fmt = ventas_cat.copy()
+        ventas_cat_fmt["ventas"] = ventas_cat_fmt["ventas"].apply(fmt_money)
+        ventas_cat_fmt["costos_variables_estimados"] = ventas_cat_fmt["costos_variables_estimados"].apply(fmt_money)
+        ventas_cat_fmt["margen_bruto"] = ventas_cat_fmt["margen_bruto"].apply(fmt_money)
+        ventas_cat_fmt["margen_%"] = ventas_cat_fmt["margen_%"].apply(lambda x: f"{x:.1%}")
 
-    st.plotly_chart(fig_margen, use_container_width=True)
+        st.dataframe(ventas_cat_fmt, use_container_width=True)
+
+        # Gráfico ranking
+        fig_margen = px.bar(
+            ventas_cat,
+            x="margen_%",
+            y="grupo_1",
+            orientation="h",
+            color="margen_%",
+            color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"]
+        )
+
+        fig_margen.update_layout(
+            plot_bgcolor=KAIROS_BG,
+            paper_bgcolor=KAIROS_BG,
+            yaxis_title="",
+            xaxis_title="Margen (%)"
+        )
+
+        st.plotly_chart(fig_margen, use_container_width=True)
 
 else:
     st.info("No hay datos suficientes para calcular margen por categoría.")
