@@ -1440,10 +1440,10 @@ estado = pd.DataFrame([
     ["Ventas", ventas_total],
     ["(-) Costos Variables", -costos_variables],
     ["(-) Costos Fijos", -costos_fijos],
-    ["= EBIT", ebit],
+#    ["= EBIT", ebit],
     ["= EBITDA", ebitda],
-    ["(-) Impuestos", -impuestos],
-    ["= Resultado Neto", resultado_neto],
+#    ["(-) Impuestos", -impuestos],
+#    ["= Resultado Neto", resultado_neto],
 ], columns=["Concepto", "Monto"])
 
 # Formatear dinero
@@ -1504,10 +1504,10 @@ rows = {
     "Ventas": [],
     "Costos Variables": [],
     "Costos Fijos": [],
-    "EBIT": [],
+#    "EBIT": [],
     "EBITDA": [],
-    "Impuestos": [],
-    "Resultado Neto": [],
+#    "Impuestos": [],
+#    "Resultado Neto": [],
 }
 
 for p in periodos:
@@ -1531,10 +1531,10 @@ for p in periodos:
     rows["Ventas"].append(v)
     rows["Costos Variables"].append(-cv)
     rows["Costos Fijos"].append(-cf)
-    rows["EBIT"].append(e)
+#    rows["EBIT"].append(e)
     rows["EBITDA"].append(eda)
-    rows["Impuestos"].append(-tax)
-    rows["Resultado Neto"].append(net)
+#    rows["Impuestos"].append(-tax)
+#    rows["Resultado Neto"].append(net)
 
 # construimos tabla tipo P&L con meses en columnas (labels cortos en español)
 cols_labels = [period_label_from_period(p) for p in periodos]
@@ -1542,10 +1542,19 @@ cols_labels = [period_label_from_period(p) for p in periodos]
 hist_pl = pd.DataFrame(rows, index=cols_labels).T
 hist_pl["Total"] = hist_pl.sum(axis=1)
 
+# Limpiar ceros solo para visualización (sin applymap)
+hist_pl_display = hist_pl.copy()
+
+# Reemplaza 0 por vacío SOLO en celdas numéricas
+mask_zero = hist_pl_display.apply(lambda s: pd.to_numeric(s, errors="coerce")).fillna(0).abs().lt(1)
+hist_pl_display = hist_pl_display.mask(mask_zero, "")
+
 # Formato dinero
-hist_pl_fmt = hist_pl.copy()
+hist_pl_fmt = hist_pl_display.copy()
 for c in hist_pl_fmt.columns:
-    hist_pl_fmt[c] = hist_pl_fmt[c].apply(lambda x: f"${x:,.0f}".replace(",", ".") if pd.notna(x) else "$0")
+    hist_pl_fmt[c] = hist_pl_fmt[c].apply(
+        lambda x: f"${x:,.0f}".replace(",", ".") if isinstance(x, (int, float)) else x
+    )
 
 # Para poder pintar “primera columna” beige, convertimos índice a columna
 hist_pl_fmt2 = hist_pl_fmt.reset_index().rename(columns={"index": "Concepto"})
