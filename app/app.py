@@ -200,16 +200,21 @@ def load_data():
     secciones = pd.read_sql("SELECT * FROM dim_secciones", engine)
 
     try:
+        costos_unitarios = pd.read_sql("SELECT * FROM dim_costos_unitarios", engine)
+    except Exception:
+        costos_unitarios = pd.DataFrame()
+
+    try:
         calendario = pd.read_sql("SELECT * FROM dim_calendario", engine)
     except Exception:
         calendario = pd.DataFrame()
 
-    return ventas, gastos, items, secciones, calendario
+    return ventas, gastos, items, secciones, calendario, costos_unitarios
 
 
 # Intentar cargar datos
 try:
-    ventas, gastos, items, secciones, calendario = load_data()
+    ventas, gastos, items, secciones, calendario, costos_unitarios = load_data()
 
     # convertir fechas
     for df, col in [(ventas, "fecha"), (gastos, "fecha"), (items, "fecha")]:
@@ -223,8 +228,9 @@ except Exception:
 
     uploaded_gastos = st.file_uploader("Subir archivo gastos.xls", type=["xls"])
     uploaded_ventas = st.file_uploader("Subir archivo ventas.xlsx", type=["xlsx"])
+    uploaded_costo = st.file_uploader("Subir archivo costo_unitario.xlsx", type=["xlsx"])
 
-    if uploaded_gastos and uploaded_ventas:
+    if uploaded_gastos and uploaded_ventas and uploaded_costo:
 
         if st.button("🚀 Generar Base de Datos", use_container_width=True):
 
@@ -235,6 +241,9 @@ except Exception:
 
             with open(os.path.join(PROJECT_ROOT, "uploads", "ventas.xlsx"), "wb") as f:
                 f.write(uploaded_ventas.getbuffer())
+            
+            with open(os.path.join(PROJECT_ROOT, "uploads", "costo_unitario.xlsx"), "wb") as f:
+                f.write(uploaded_costo.getbuffer())
 
             import sys
             import os
@@ -494,9 +503,15 @@ gastos_file = st.sidebar.file_uploader(
     key="gastos_upload"
 )
 
+costo_file = st.sidebar.file_uploader(
+    "Subir archivo Costo unitario",
+    type=["xlsx"],
+    key="costo_unitario_upload"
+)
+
 if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
 
-    if ventas_file is None or gastos_file is None:
+    if ventas_file is None or gastos_file is None or costo_file is None:
         st.sidebar.error("Debe subir ambos archivos.")
     else:
         with st.spinner("Procesando archivos..."):
@@ -505,12 +520,16 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
 
             ventas_path = os.path.join("uploads", "ventas.xlsx")
             gastos_path = os.path.join("uploads", "gastos.xls")
+            costo_path = os.path.join("uploads", "costo_unitario.xlsx")
 
             with open(ventas_path, "wb") as f:
                 f.write(ventas_file.getbuffer())
 
             with open(gastos_path, "wb") as f:
                 f.write(gastos_file.getbuffer())
+            
+            with open(costo_path, "wb") as f:
+                f.write(costo_file.getbuffer())
 
             # Ejecutar ETL correctamente
             #from etl.etl_pipeline import run_etl

@@ -15,6 +15,7 @@ UPLOADS_DIR = os.path.join(PROJECT_ROOT, "uploads")
 
 RUTA_GASTOS = os.path.join(UPLOADS_DIR, "gastos.xls")
 RUTA_VENTAS = os.path.join(UPLOADS_DIR, "ventas.xlsx")
+RUTA_COSTO_UNITARIO = os.path.join(UPLOADS_DIR, "costo_unitario.xlsx")
 
 
 
@@ -268,6 +269,48 @@ def crear_calendario(df_ventas, df_gastos):
 
     return calendario
 
+# =====================================================
+# COSTO UNITARIO (archivo cliente)
+# =====================================================
+def procesar_costo_unitario():
+    """
+    Lee uploads/costo_unitario.xlsx
+    Espera columnas tipo: seccion | item | costo_unitario
+    """
+    if not os.path.exists(RUTA_COSTO_UNITARIO):
+        # tabla vacía (no rompe el ETL)
+        return pd.DataFrame(columns=["seccion", "item", "costo_unitario"])
+
+    df = pd.read_excel(RUTA_COSTO_UNITARIO)
+    df = limpiar_columnas(df)
+
+    # Normalizar nombres esperados (por si vienen con variaciones)
+    # ejemplo: "costo_unitario", "costo unitario", etc.
+    if "costo_unitario" not in df.columns:
+        # intenta detectar columna de costo por heurística
+        for c in df.columns:
+            if "costo" in c and "unit" in c:
+                df = df.rename(columns={c: "costo_unitario"})
+                break
+
+    # Validaciones mínimas
+    needed = {"seccion", "item", "costo_unitario"}
+    missing = needed - set(df.columns)
+    if missing:
+        raise ValueError(f"Faltan columnas en costo_unitario.xlsx: {missing}")
+
+    df["seccion"] = df["seccion"].astype(str).str.strip()
+    df["item"] = df["item"].astype(str).str.strip()
+    df["costo_unitario"] = pd.to_numeric(df["costo_unitario"], errors="coerce")
+
+    df = df.dropna(subset=["seccion", "item", "costo_unitario"])
+    df = df[df["costo_unitario"] >= 0]
+
+    # Deduplicar: si el cliente repite item, nos quedamos con el último
+    df = df.drop_duplicates(subset=["seccion", "item"], keep="last").reset_index(drop=True)
+
+    return df
+
 
 # =====================================================
 # MAIN
@@ -287,6 +330,9 @@ def main():
     print("Procesando Secciones...")
     df_secciones = procesar_secciones()
 
+    print("Procesando Costo Unitario (cliente).")
+    df_costo_unitario = procesar_costo_unitario()
+
     print("Creando Calendario...")
     df_calendario = crear_calendario(df_ventas, df_gastos)
 
@@ -301,6 +347,7 @@ def main():
     df_items.to_sql("fact_items", engine, if_exists="replace", index=False)
     df_secciones.to_sql("dim_secciones", engine, if_exists="replace", index=False)
     df_calendario.to_sql("dim_calendario", engine, if_exists="replace", index=False)
+    df_costo_unitario.to_sql("dim_costos_unitarios", engine, if_exists="replace", index=False)
 
     print("ETL COMPLETADO CORRECTAMENTE.")
 
