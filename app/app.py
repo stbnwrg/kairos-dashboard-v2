@@ -1637,14 +1637,11 @@ else:
     st.error("🔴 Operación bajo punto de equilibrio.")
 
 # ======================================================
-# MARGEN POR CATEGORÍA
+# MARGEN OPERATIVO ESTIMADO POR CATEGORÍA
 # ======================================================
 
 st.divider()
-st.subheader("Margen por Categoría (Filtro actual)")
-
-st.write("Columnas items_f:", items_f.columns)
-st.write("Registros items_f:", len(items_f))
+st.subheader("Margen Operativo Estimado por Categoría (Filtro actual)")
 
 if not items_f.empty:
 
@@ -1672,51 +1669,69 @@ if not items_f.empty:
             .rename(columns={val_col: "ventas"})
         )
 
-        # Costos variables distribuidos proporcionalmente
+        # Participación en ventas
         if ventas_total > 0:
-            ventas_cat["costos_variables_estimados"] = (
-                ventas_cat["ventas"] / ventas_total
-            ) * costos_variables
+            ventas_cat["participacion"] = ventas_cat["ventas"] / ventas_total
         else:
-            ventas_cat["costos_variables_estimados"] = 0
+            ventas_cat["participacion"] = 0
 
-        ventas_cat["margen_bruto"] = (
-            ventas_cat["ventas"] - ventas_cat["costos_variables_estimados"]
+        # Distribuir costos
+        ventas_cat["costos_variables_estimados"] = (
+            ventas_cat["participacion"] * costos_variables
         )
 
-        ventas_cat["margen_%"] = (
-            ventas_cat["margen_bruto"] / ventas_cat["ventas"]
+        ventas_cat["costos_fijos_estimados"] = (
+            ventas_cat["participacion"] * costos_fijos
         )
 
-        ventas_cat = ventas_cat.sort_values("margen_%", ascending=False)
+        # Margen operativo estimado
+        ventas_cat["resultado_operativo"] = (
+            ventas_cat["ventas"]
+            - ventas_cat["costos_variables_estimados"]
+            - ventas_cat["costos_fijos_estimados"]
+        )
 
-        # Tabla
+        ventas_cat["margen_operativo_%"] = (
+            ventas_cat["resultado_operativo"] / ventas_cat["ventas"]
+        )
+
+        ventas_cat = ventas_cat.sort_values("margen_operativo_%", ascending=False)
+
+        # =====================
+        # Tabla formateada
+        # =====================
+
         ventas_cat_fmt = ventas_cat.copy()
+
         ventas_cat_fmt["ventas"] = ventas_cat_fmt["ventas"].apply(fmt_money)
         ventas_cat_fmt["costos_variables_estimados"] = ventas_cat_fmt["costos_variables_estimados"].apply(fmt_money)
-        ventas_cat_fmt["margen_bruto"] = ventas_cat_fmt["margen_bruto"].apply(fmt_money)
-        ventas_cat_fmt["margen_%"] = ventas_cat_fmt["margen_%"].apply(lambda x: f"{x:.1%}")
+        ventas_cat_fmt["costos_fijos_estimados"] = ventas_cat_fmt["costos_fijos_estimados"].apply(fmt_money)
+        ventas_cat_fmt["resultado_operativo"] = ventas_cat_fmt["resultado_operativo"].apply(fmt_money)
+        ventas_cat_fmt["margen_operativo_%"] = ventas_cat_fmt["margen_operativo_%"].apply(lambda x: f"{x:.1%}")
 
         st.dataframe(ventas_cat_fmt, use_container_width=True)
 
-        # Gráfico ranking
-        fig_margen = px.bar(
+        # =====================
+        # Gráfico
+        # =====================
+
+        fig_margen_op = px.bar(
             ventas_cat,
-            x="margen_%",
+            x="margen_operativo_%",
             y="grupo_1",
             orientation="h",
-            color="margen_%",
+            color="margen_operativo_%",
             color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"]
         )
 
-        fig_margen.update_layout(
+        fig_margen_op.update_layout(
             plot_bgcolor=KAIROS_BG,
             paper_bgcolor=KAIROS_BG,
             yaxis_title="",
-            xaxis_title="Margen (%)"
+            xaxis_title="Margen Operativo (%)"
         )
 
-        st.plotly_chart(fig_margen, use_container_width=True)
+        st.plotly_chart(fig_margen_op, use_container_width=True)
 
 else:
     st.info("No hay datos suficientes para calcular margen por categoría.")
