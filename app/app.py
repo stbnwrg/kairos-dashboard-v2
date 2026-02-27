@@ -1610,10 +1610,96 @@ if margen_contribucion > 0:
 else:
     punto_equilibrio = 0
 
-col_b1, col_b2 = st.columns(2)
+# Diferencia real
+delta_equilibrio = ventas_total - punto_equilibrio
+porcentaje_sobre_equilibrio = (delta_equilibrio / punto_equilibrio) if punto_equilibrio > 0 else 0
+
+col_b1, col_b2, col_b3 = st.columns(3)
 
 col_b1.metric("Margen de Contribución", f"{margen_contribucion:.1%}")
-col_b2.metric("Ventas necesarias para cubrir CF", fmt_money(punto_equilibrio))
+
+col_b2.metric(
+    "Ventas necesarias para cubrir CF",
+    fmt_money(punto_equilibrio)
+)
+
+col_b3.metric(
+    "Sobre / Bajo Punto Equilibrio",
+    fmt_money(delta_equilibrio),
+    f"{porcentaje_sobre_equilibrio:.1%}"
+)
+
+if delta_equilibrio >= 0:
+    st.success("🟢 Operación sobre punto de equilibrio.")
+else:
+    st.error("🔴 Operación bajo punto de equilibrio.")
+
+# ======================================================
+# MARGEN POR CATEGORÍA
+# ======================================================
+
+st.divider()
+st.subheader("Margen por Categoría (Filtro actual)")
+
+if not items_f.empty and "grupo_1" in items_f.columns:
+
+    val_col = "precio" if "precio" in items_f.columns else "total"
+
+    ventas_cat = (
+        items_f.groupby("grupo_1")[val_col]
+        .sum()
+        .reset_index()
+        .rename(columns={val_col: "ventas"})
+    )
+
+    # Costos variables distribuidos proporcionalmente
+    if ventas_total > 0:
+        ventas_cat["costos_variables_estimados"] = (
+            ventas_cat["ventas"] / ventas_total
+        ) * costos_variables
+    else:
+        ventas_cat["costos_variables_estimados"] = 0
+
+    ventas_cat["margen_bruto"] = (
+        ventas_cat["ventas"] - ventas_cat["costos_variables_estimados"]
+    )
+
+    ventas_cat["margen_%"] = (
+        ventas_cat["margen_bruto"] / ventas_cat["ventas"]
+    )
+
+    ventas_cat = ventas_cat.sort_values("margen_%", ascending=False)
+
+    # Tabla
+    ventas_cat_fmt = ventas_cat.copy()
+    ventas_cat_fmt["ventas"] = ventas_cat_fmt["ventas"].apply(fmt_money)
+    ventas_cat_fmt["costos_variables_estimados"] = ventas_cat_fmt["costos_variables_estimados"].apply(fmt_money)
+    ventas_cat_fmt["margen_bruto"] = ventas_cat_fmt["margen_bruto"].apply(fmt_money)
+    ventas_cat_fmt["margen_%"] = ventas_cat_fmt["margen_%"].apply(lambda x: f"{x:.1%}")
+
+    st.dataframe(ventas_cat_fmt, use_container_width=True)
+
+    # Gráfico ranking
+    fig_margen = px.bar(
+        ventas_cat,
+        x="margen_%",
+        y="grupo_1",
+        orientation="h",
+        color="margen_%",
+        color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"]
+    )
+
+    fig_margen.update_layout(
+        plot_bgcolor=KAIROS_BG,
+        paper_bgcolor=KAIROS_BG,
+        yaxis_title="",
+        xaxis_title="Margen (%)"
+    )
+
+    st.plotly_chart(fig_margen, use_container_width=True)
+
+else:
+    st.info("No hay datos suficientes para calcular margen por categoría.")
 
 # ======================================================
 # EXPORTAR PDF
