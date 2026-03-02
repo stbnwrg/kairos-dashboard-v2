@@ -1657,17 +1657,17 @@ else:
     st.error("🔴 Operación bajo punto de equilibrio.")
 
 # ======================================================
-# MARGEN OPERATIVO ESTIMADO POR CATEGORÍA
+# MARGEN BRUTO REAL POR CATEGORÍA
 # ======================================================
 
 st.divider()
-st.subheader("Margen Operativo Estimado por Categoría (Filtro actual)")
+st.subheader("Margen Bruto Real por Categoría (Filtro actual)")
 
-if not items_f.empty:
+if not items_f.empty and not costos_unitarios.empty:
 
     dfm = items_f.copy()
 
-    # Merge con secciones si existe
+    # Merge grupo_1 desde secciones
     if not secciones.empty and "seccion" in dfm.columns:
         dfm = dfm.merge(
             secciones[["seccion", "grupo_1"]],
@@ -1675,86 +1675,80 @@ if not items_f.empty:
             how="left"
         )
 
-    if "grupo_1" not in dfm.columns:
-        st.info("No existe grupo_1 para calcular margen.")
+    # Merge costo_unitario
+    dfm = dfm.merge(
+        costos_unitarios[["item", "costo_unitario"]],
+        on="item",
+        how="left"
+    )
 
+    dfm["costo_unitario"] = dfm["costo_unitario"].fillna(0)
+
+    # Determinar columnas
+    precio_col = "precio" if "precio" in dfm.columns else "total"
+    cantidad_col = "cantidad" if "cantidad" in dfm.columns else None
+
+    if cantidad_col is not None:
+        dfm["ventas"] = dfm[precio_col] * dfm[cantidad_col]
+        dfm["costo_real"] = dfm["costo_unitario"] * dfm[cantidad_col]
     else:
+        dfm["ventas"] = dfm[precio_col]
+        dfm["costo_real"] = dfm["costo_unitario"]
 
-        val_col = "precio" if "precio" in dfm.columns else "total"
+    # Agrupar por categoría
+    margen_cat = (
+        dfm.groupby("grupo_1")[["ventas", "costo_real"]]
+        .sum()
+        .reset_index()
+    )
 
-        ventas_cat = (
-            dfm.groupby("grupo_1")[val_col]
-            .sum()
-            .reset_index()
-            .rename(columns={val_col: "ventas"})
-        )
+    margen_cat["resultado_bruto"] = (
+        margen_cat["ventas"] - margen_cat["costo_real"]
+    )
 
-        # Participación en ventas
-        if ventas_total > 0:
-            ventas_cat["participacion"] = ventas_cat["ventas"] / ventas_total
-        else:
-            ventas_cat["participacion"] = 0
+    margen_cat["margen_bruto_%"] = (
+        margen_cat["resultado_bruto"] / margen_cat["ventas"]
+    )
 
-        # Distribuir costos
-        ventas_cat["costos_variables_estimados"] = (
-            ventas_cat["participacion"] * costos_variables
-        )
+    margen_cat = margen_cat.sort_values("margen_bruto_%", ascending=False)
 
-        ventas_cat["costos_fijos_estimados"] = (
-            ventas_cat["participacion"] * costos_fijos
-        )
+    # =====================
+    # Tabla formateada
+    # =====================
 
-        # Margen operativo estimado
-        ventas_cat["resultado_operativo"] = (
-            ventas_cat["ventas"]
-            - ventas_cat["costos_variables_estimados"]
-            - ventas_cat["costos_fijos_estimados"]
-        )
+    margen_cat_fmt = margen_cat.copy()
 
-        ventas_cat["margen_operativo_%"] = (
-            ventas_cat["resultado_operativo"] / ventas_cat["ventas"]
-        )
+    margen_cat_fmt["ventas"] = margen_cat_fmt["ventas"].apply(fmt_money)
+    margen_cat_fmt["costo_real"] = margen_cat_fmt["costo_real"].apply(fmt_money)
+    margen_cat_fmt["resultado_bruto"] = margen_cat_fmt["resultado_bruto"].apply(fmt_money)
+    margen_cat_fmt["margen_bruto_%"] = margen_cat_fmt["margen_bruto_%"].apply(lambda x: f"{x:.1%}")
 
-        ventas_cat = ventas_cat.sort_values("margen_operativo_%", ascending=False)
+    st.dataframe(margen_cat_fmt, use_container_width=True)
 
-        # =====================
-        # Tabla formateada
-        # =====================
+    # =====================
+    # Gráfico
+    # =====================
 
-        ventas_cat_fmt = ventas_cat.copy()
+    fig_margen = px.bar(
+        margen_cat,
+        x="margen_bruto_%",
+        y="grupo_1",
+        orientation="h",
+        color="margen_bruto_%",
+        color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"]
+    )
 
-        ventas_cat_fmt["ventas"] = ventas_cat_fmt["ventas"].apply(fmt_money)
-        ventas_cat_fmt["costos_variables_estimados"] = ventas_cat_fmt["costos_variables_estimados"].apply(fmt_money)
-        ventas_cat_fmt["costos_fijos_estimados"] = ventas_cat_fmt["costos_fijos_estimados"].apply(fmt_money)
-        ventas_cat_fmt["resultado_operativo"] = ventas_cat_fmt["resultado_operativo"].apply(fmt_money)
-        ventas_cat_fmt["margen_operativo_%"] = ventas_cat_fmt["margen_operativo_%"].apply(lambda x: f"{x:.1%}")
+    fig_margen.update_layout(
+        plot_bgcolor=KAIROS_BG,
+        paper_bgcolor=KAIROS_BG,
+        yaxis_title="",
+        xaxis_title="Margen Bruto (%)"
+    )
 
-        st.dataframe(ventas_cat_fmt, use_container_width=True)
-
-        # =====================
-        # Gráfico
-        # =====================
-
-        fig_margen_op = px.bar(
-            ventas_cat,
-            x="margen_operativo_%",
-            y="grupo_1",
-            orientation="h",
-            color="margen_operativo_%",
-            color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"]
-        )
-
-        fig_margen_op.update_layout(
-            plot_bgcolor=KAIROS_BG,
-            paper_bgcolor=KAIROS_BG,
-            yaxis_title="",
-            xaxis_title="Margen Operativo (%)"
-        )
-
-        st.plotly_chart(fig_margen_op, use_container_width=True)
+    st.plotly_chart(fig_margen, use_container_width=True)
 
 else:
-    st.info("No hay datos suficientes para calcular margen por categoría.")
+    st.info("No hay datos suficientes para calcular margen bruto por categoría.")
 
 # ======================================================
 # EXPORTAR PDF
