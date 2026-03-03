@@ -311,7 +311,7 @@ def procesar_secciones():
     # GRUPO 1
     # -----------------------
     def grupo_1(row):
-        if row["grupo_2"] in ["CAFÉ", "PASTELERÍA", "TÉ", "PIZZA"]:
+        if row["grupo_2"] in ["CAFÉ", "PASTELERÍA", "TÉ", "PIZZA", "SANDWICH"]:
             return row["grupo_2"]
         return "OTROS"
 

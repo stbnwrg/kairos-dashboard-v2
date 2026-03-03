@@ -7,4 +7,5 @@ sqlalchemy
 kaleido
 xlsxwriter
 psycopg2-binary
+xlrd >= 2.0.1
 #pdfkit
