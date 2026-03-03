@@ -204,7 +204,14 @@ def procesar_gastos():
 # =====================================================
 
 def procesar_transacciones():
+    print("=== DEBUG PRODUCCION ===")
+    print("CWD:", os.getcwd())
+    print("Existe uploads/ventas.xlsx:", os.path.exists("uploads/ventas.xlsx"))
+    print("Existe uploads/transacciones.xlsx:", os.path.exists("uploads/transacciones.xlsx"))
+    print("Ruta ventas detectada:", RUTA_VENTAS)
+    print("=========================")
 
+    
     df = pd.read_excel(RUTA_VENTAS, sheet_name="Transacciones", skiprows=1)
     df = limpiar_columnas(df)
 
