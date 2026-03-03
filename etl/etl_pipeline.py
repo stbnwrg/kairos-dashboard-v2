@@ -14,8 +14,29 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 UPLOADS_DIR = os.path.join(PROJECT_ROOT, "uploads")
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
-RUTA_GASTOS = os.path.join(UPLOADS_DIR, "gastos.xls")
-RUTA_VENTAS = os.path.join(UPLOADS_DIR, "ventas.xlsx")
+GASTOS_CANDIDATOS = [
+    os.path.join(UPLOADS_DIR, "gastos.xlsx"),
+    os.path.join(UPLOADS_DIR, "gastos.xls"),
+    os.path.join(DATA_DIR, "gastos.xlsx"),
+    os.path.join(DATA_DIR, "gastos.xls"),
+]
+
+RUTA_GASTOS = next((p for p in GASTOS_CANDIDATOS if os.path.exists(p)), GASTOS_CANDIDATOS[0])
+print("DEBUG RUTA_GASTOS:", RUTA_GASTOS)
+VENTAS_CANDIDATOS = [
+    os.path.join(UPLOADS_DIR, "ventas.xlsx"),
+    os.path.join(UPLOADS_DIR, "transacciones.xlsx"),
+    os.path.join(DATA_DIR, "ventas.xlsx"),
+    os.path.join(DATA_DIR, "transacciones.xlsx"),
+]
+
+RUTA_VENTAS = next(
+    (p for p in VENTAS_CANDIDATOS if os.path.exists(p)),
+    None
+)
+
+if RUTA_VENTAS is None:
+    raise FileNotFoundError("No se encontró ventas.xlsx o transacciones.xlsx en uploads ni data.")
 
 # costo unitario: aceptar "costo_unitario.xlsx" y "costo unitario.xlsx"
 COSTO_CANDIDATOS = [
@@ -68,6 +89,24 @@ def limpiar_fecha(col):
         dayfirst=True,
         errors="coerce"
     )
+# =====================================================
+# ELIMINAR EMOJIS
+# =====================================================
+import re
+import unicodedata
+
+def normalizar_texto(texto: str) -> str:
+    if pd.isna(texto):
+        return ""
+
+    # eliminar emojis y símbolos
+    texto = re.sub(r"[^\w\s]", " ", str(texto))
+
+    # eliminar tildes
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = texto.encode("ascii", "ignore").decode("utf-8")
+
+    return texto.upper().strip()
 
 # =====================================================
 # GASTOS
@@ -214,31 +253,57 @@ def procesar_secciones():
     # -----------------------
     def grupo_2(seccion):
 
-        mapping = {
-            "Sándwiches": "SANDWICH",
-            "🌟 Diferenciadores (Experiencia Café Kairós)": "CAFÉ",
-            "Café": "CAFÉ",
-            "Croissant Salados": "PASTELERÍA",
-            "Pastelería": "PASTELERÍA",
-            "Waffles": "PASTELERÍA",
-            "Jugos naturales": "BEBIDAS FRIAS",
-            "Bollería": "PASTELERÍA",
-            "Batidos": "BEBIDAS FRIAS",
-            "Bebidas frías y otras opciones": "BEBIDAS FRIAS",
-            "Brunch": "OTROS",
-            "Pizza de la casa": "PIZZA",
-            "Helados": "HELADOS",
-            "Productos Blackdrop Coffee": "CAFÉ",
-            "Promociones día del profesor/a": "PROMOCIONES",
-            "Promoción Lunes \"Café + Torta del día\"": "PROMOCIONES",
-            "🌟 Diferenciadores (Bebidas Frías)": "CAFÉ",
-            "Cajas dulce Kairós": "PASTELERÍA",
-            "🌟 Latte Blackdrop (producto vegano)": "CAFÉ",
-            "Momento Kairós - Fotografía": "OTROS",
-            "Promociones Kairós": "PROMOCIONES"
-        }
+        s = normalizar_texto(seccion)
 
-        return mapping.get(seccion, "TÉ")
+        # -------------------------
+        # PIZZA
+        # -------------------------
+        if "PIZZA" in s:
+            return "PIZZA"
+
+        # -------------------------
+        # HELADOS
+        # -------------------------
+        if "HELADO" in s:
+            return "HELADOS"
+
+        # -------------------------
+        # TÉ / TEA / TES
+        # -------------------------
+        if any(x in s for x in [" TE ", " TES", "TEA", "MATCHA", "INFUSION"]):
+            return "TÉ"
+
+        # -------------------------
+        # BEBIDAS FRIAS
+        # -------------------------
+        if any(x in s for x in ["BEBIDA", "BATIDO", "JUGO", "FRIA", "FRIO", "ESPRESSO NARANJA"]):
+            return "BEBIDAS FRIAS"
+
+        # -------------------------
+        # CAFÉ
+        # -------------------------
+        if "CAFE" in s:
+            return "CAFÉ"
+
+        # -------------------------
+        # PASTELERÍA
+        # -------------------------
+        if any(x in s for x in ["PASTEL", "CROISSANT", "WAFFLE", "BOLLERIA", "GALLET", "CHEESECAKE", "TORTA"]):
+            return "PASTELERÍA"
+
+        # -------------------------
+        # SANDWICH
+        # -------------------------
+        if "SANDWICH" in s:
+            return "SANDWICH"
+
+        # -------------------------
+        # PROMOCIONES
+        # -------------------------
+        if "PROMOCION" in s:
+            return "PROMOCIONES"
+
+        return "OTROS"
 
     df["grupo_2"] = df["seccion"].apply(grupo_2)
 
