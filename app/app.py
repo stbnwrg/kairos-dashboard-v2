@@ -1730,20 +1730,25 @@ if not items_f.empty and not costos_unitarios.empty:
     # =====================
 
     fig_margen = px.bar(
-        margen_cat,
-        x="margen_bruto_%",
-        y="grupo_1",
-        orientation="h",
-        color="margen_bruto_%",
-        color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"]
+    margen_cat,
+    x="margen_bruto_%",
+    y="grupo_1",
+    orientation="h",
+    color="margen_bruto_%",
+    color_continuous_scale=["#C62828", "#F9A825", "#2E7D32"],
+    range_x=[0, 1]  # 👈 Fuerza 0% a 100%
     )
 
     fig_margen.update_layout(
-        plot_bgcolor=KAIROS_BG,
-        paper_bgcolor=KAIROS_BG,
-        yaxis_title="",
-        xaxis_title="Margen Bruto (%)"
+    plot_bgcolor=KAIROS_BG,
+    paper_bgcolor=KAIROS_BG,
+    yaxis_title="",
+    xaxis_title="Margen Bruto (%)"
     )
+
+    # 👇 Esto convierte la escala y eje a formato porcentaje
+    fig_margen.update_xaxes(tickformat=".0%")
+    fig_margen.update_coloraxes(colorbar_tickformat=".1%")
 
     st.plotly_chart(fig_margen, use_container_width=True)
 
