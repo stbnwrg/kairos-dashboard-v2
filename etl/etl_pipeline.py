@@ -10,10 +10,18 @@ from sqlalchemy import create_engine
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
-# Carpeta uploads (creada dinámicamente desde app)
 UPLOADS_DIR = os.path.join(PROJECT_ROOT, "uploads")
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
+
+def obtener_archivo_reciente(candidatos):
+
+    archivos = [p for p in candidatos if os.path.exists(p)]
+
+    if not archivos:
+        return None
+
+    return max(archivos, key=os.path.getmtime)
 
 
 # ---------------------------------
@@ -26,10 +34,7 @@ GASTOS_CANDIDATOS = [
     os.path.join(DATA_DIR, "gastos.xls"),
 ]
 
-RUTA_GASTOS = next(
-    (p for p in GASTOS_CANDIDATOS if os.path.exists(p)),
-    None
-)
+RUTA_GASTOS = obtener_archivo_reciente(GASTOS_CANDIDATOS)
 
 if RUTA_GASTOS:
     print("DEBUG RUTA_GASTOS:", RUTA_GASTOS)
@@ -160,63 +165,55 @@ def procesar_gastos():
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
 
     # =================================================
-    # SOLUCIÓN ROBUSTA PARA XLS / XLSX
+    # LECTURA ROBUSTA XLS / XLSX
     # =================================================
+    ext = os.path.splitext(RUTA_GASTOS.lower())[1]
 
-    if RUTA_GASTOS.lower().endswith(".xls"):
+    if ext == ".xlsx":
+        # xlsx => openpyxl
+        df = pd.read_excel(RUTA_GASTOS, sheet_name=0, skiprows=1, engine="openpyxl")
 
+    elif ext == ".xls":
         import xlrd
-        from openpyxl import Workbook
-        import tempfile
 
-        print("Archivo XLS detectado. Convirtiendo a XLSX temporal...")
+        def _read_xls_robusto(path: str, sheet_index: int = 0, skiprows: int = 1) -> pd.DataFrame:
+            """
+            Lee .xls con xlrd probando encodings típicos para archivos con caracteres raros.
+            Construye DataFrame manualmente (evita read_excel que revienta en UnicodeDecodeError).
+            """
+            last_err = None
+            for enc in (None, "latin1", "cp1252"):
+                try:
+                    if enc is None:
+                        book = xlrd.open_workbook(path)
+                    else:
+                        book = xlrd.open_workbook(path, encoding_override=enc)
 
-        book = xlrd.open_workbook(RUTA_GASTOS)
-        sheet = book.sheet_by_index(0)
+                    sh = book.sheet_by_index(sheet_index)
 
-        wb = Workbook()
-        ws = wb.active
+                    rows = [sh.row_values(r) for r in range(sh.nrows)]
 
-        assert ws is not None
+                    # skiprows (tu excel viene con fila extra arriba)
+                    rows = rows[skiprows:]
 
-        for r in range(sheet.nrows):
-            ws.append(list(sheet.row_values(r)))
+                    if not rows or len(rows) < 2:
+                        raise ValueError("XLS vacío o sin filas suficientes luego de skiprows.")
 
-        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-        wb.save(tmp_file.name)
+                    # header = primera fila después de skip
+                    header = [str(x).strip().lower() for x in rows[0]]
+                    data = rows[1:]
 
-        print("Archivo temporal generado:", tmp_file.name)
+                    return pd.DataFrame(data, columns=header)
 
-        df = pd.read_excel(
-            tmp_file.name,
-            sheet_name=0,
-            skiprows=1,
-            engine="openpyxl"
-        )
+                except Exception as e:
+                    last_err = e
+
+            raise RuntimeError(f"No se pudo leer XLS (fallaron encodings). Último error: {last_err}")
+
+        df = _read_xls_robusto(RUTA_GASTOS, sheet_index=0, skiprows=1)
 
     else:
-
-        print("Archivo XLSX detectado")
-
-        try:
-
-            df = pd.read_excel(
-                RUTA_GASTOS,
-                sheet_name="Gastos",
-                skiprows=1,
-                engine="openpyxl"
-            )
-
-        except Exception as e:
-
-            print("No se pudo leer hoja 'Gastos'. Probando primera hoja.")
-            print("Error:", e)
-
-            df = pd.read_excel(
-                RUTA_GASTOS,
-                sheet_name=0,
-                skiprows=1
-            )
+        raise ValueError(f"Extensión de gastos no soportada: {ext}")
 
     # =================================================
     # LIMPIEZA

@@ -2,7 +2,7 @@ streamlit
 pandas
 plotly
 openpyxl
-xlrd>=2.0.1
+xlrd==2.0.2
 sqlalchemy
 kaleido
 xlsxwriter

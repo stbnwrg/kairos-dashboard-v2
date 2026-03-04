@@ -66,8 +66,6 @@ TAX_RATE = 0.27  # impuesto corporativo referencial
 # LOGIN SIMPLE
 # ======================================================
 
-import os
-
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "kairos2025")
 
 if "authenticated" not in st.session_state:
@@ -187,12 +185,16 @@ from sqlalchemy import create_engine
 import os
 
 # 🔐 Obtener variable de entorno UNA sola vez
-DATABASE_URL: str = os.environ["DATABASE_URL"]  # falla inmediato si no existe
 
+DATABASE_URL = os.environ.get("DATABASE_URL")# falla inmediato si no existe
+
+if not DATABASE_URL:
+    st.error("DATABASE_URL no configurada.")
+    st.stop()
 
 @st.cache_data
 def load_data():
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(str(DATABASE_URL))
 
     ventas = pd.read_sql("SELECT * FROM fact_ventas", engine)
     gastos = pd.read_sql("SELECT * FROM fact_gastos", engine)
@@ -250,8 +252,8 @@ except Exception:
 
             sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-            from etl.etl_pipeline import main as run_etl
-            run_etl()
+            #from etl.etl_pipeline import main as run_etl
+            #run_etl()
 
             st.success("Base generada correctamente. Recargando...")
             st.rerun()
@@ -531,7 +533,17 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                     f.flush()
 
             if gastos_file is not None:
-                gastos_path = os.path.join("uploads", "gastos.xlsx")
+                # Guardar manteniendo extensión real (xls o xlsx)
+                original_name = (gastos_file.name or "").lower()
+                ext = ".xls" if original_name.endswith(".xls") else ".xlsx"
+
+                gastos_path = os.path.join("uploads", f"gastos{ext}")
+
+                # (Opcional pero recomendado) borrar el “otro” para evitar lecturas cruzadas
+                other_path = os.path.join("uploads", "gastos.xls" if ext == ".xlsx" else "gastos.xlsx")
+                if os.path.exists(other_path):
+                    os.remove(other_path)
+
                 with open(gastos_path, "wb") as f:
                     f.write(gastos_file.getbuffer())
                     f.flush()
@@ -542,14 +554,6 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                     f.write(costo_file.getbuffer())
                     f.flush()
 
-            # ======================================================
-            # Ajustar path para poder importar ETL
-            # ======================================================
-
-            import sys
-            import os
-
-            sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
             # ======================================================
             # Ejecutar ETL
@@ -1370,6 +1374,7 @@ st.subheader("Flujo de Caja Operativo (Histórico)")
 # Reusamos resultado_hist (histórico mensual no filtrado)
 if resultado_hist.empty:
     st.info("No hay histórico suficiente para mostrar flujo.")
+    flujo = pd.DataFrame(columns=["Ventas","Costos"])
 else:
     flujo = resultado_hist.copy()
 flujo["Flujo Neto"] = flujo["Ventas"] - flujo["Costos"]
