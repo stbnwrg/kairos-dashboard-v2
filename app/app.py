@@ -518,7 +518,10 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
         with st.spinner("Procesando archivos..."):
 
             os.makedirs("uploads", exist_ok=True)
-            args = ["python", "etl/etl_pipeline.py"]
+            
+            import sys
+
+            args = [sys.executable, os.path.join(PROJECT_ROOT, "etl", "etl_pipeline.py")]
 
             if ventas_file is not None:
                 ventas_path = os.path.join("uploads", "ventas.xlsx")
@@ -538,7 +541,12 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                     f.write(costo_file.getbuffer())
                 args += ["--costos"]
 
-            subprocess.run(args, check=True)
+            result = subprocess.run(args, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                st.error("Error en ETL")
+                st.code(result.stderr)
+                st.stop()
 
             st.cache_data.clear()
             st.success("Datos actualizados correctamente.")
