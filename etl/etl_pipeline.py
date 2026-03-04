@@ -14,6 +14,11 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 UPLOADS_DIR = os.path.join(PROJECT_ROOT, "uploads")
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
+
+
+# ---------------------------------
+# GASTOS
+# ---------------------------------
 GASTOS_CANDIDATOS = [
     os.path.join(UPLOADS_DIR, "gastos.xlsx"),
     os.path.join(UPLOADS_DIR, "gastos.xls"),
@@ -21,8 +26,20 @@ GASTOS_CANDIDATOS = [
     os.path.join(DATA_DIR, "gastos.xls"),
 ]
 
-RUTA_GASTOS = next((p for p in GASTOS_CANDIDATOS if os.path.exists(p)), GASTOS_CANDIDATOS[0])
-print("DEBUG RUTA_GASTOS:", RUTA_GASTOS)
+RUTA_GASTOS = next(
+    (p for p in GASTOS_CANDIDATOS if os.path.exists(p)),
+    None
+)
+
+if RUTA_GASTOS:
+    print("DEBUG RUTA_GASTOS:", RUTA_GASTOS)
+else:
+    print("⚠️ No se encontró archivo de gastos al iniciar ETL.")
+
+
+# ---------------------------------
+# VENTAS
+# ---------------------------------
 VENTAS_CANDIDATOS = [
     os.path.join(UPLOADS_DIR, "ventas.xlsx"),
     os.path.join(UPLOADS_DIR, "transacciones.xlsx"),
@@ -35,17 +52,31 @@ RUTA_VENTAS = next(
     None
 )
 
-if RUTA_VENTAS is None:
-    raise FileNotFoundError("No se encontró ventas.xlsx o transacciones.xlsx en uploads ni data.")
+if RUTA_VENTAS:
+    print("DEBUG RUTA_VENTAS:", RUTA_VENTAS)
+else:
+    print("⚠️ No se encontró archivo de ventas al iniciar ETL.")
 
-# costo unitario: aceptar "costo_unitario.xlsx" y "costo unitario.xlsx"
+
+# ---------------------------------
+# COSTO UNITARIO
+# ---------------------------------
 COSTO_CANDIDATOS = [
     os.path.join(UPLOADS_DIR, "costo_unitario.xlsx"),
     os.path.join(UPLOADS_DIR, "costo unitario.xlsx"),
     os.path.join(DATA_DIR, "costo_unitario.xlsx"),
     os.path.join(DATA_DIR, "costo unitario.xlsx"),
 ]
-RUTA_COSTO = next((p for p in COSTO_CANDIDATOS if os.path.exists(p)), COSTO_CANDIDATOS[0])
+
+RUTA_COSTO = next(
+    (p for p in COSTO_CANDIDATOS if os.path.exists(p)),
+    None
+)
+
+if RUTA_COSTO:
+    print("DEBUG RUTA_COSTO:", RUTA_COSTO)
+else:
+    print("⚠️ No se encontró archivo de costo unitario al iniciar ETL.")
 
 # =====================================================
 # VALIDA RUTAS
@@ -112,9 +143,10 @@ def normalizar_texto(texto: str) -> str:
 # GASTOS
 # =====================================================
 def procesar_gastos():
-
+    if RUTA_GASTOS is None:
+        raise FileNotFoundError("No se encontró archivo de gastos.")
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
-
+    
     df = pd.read_excel(RUTA_GASTOS, sheet_name="Gastos", skiprows=1)
     df = limpiar_columnas(df)
 
@@ -204,6 +236,8 @@ def procesar_gastos():
 # =====================================================
 
 def procesar_transacciones():
+    if RUTA_VENTAS is None:
+        raise FileNotFoundError("No se encontró archivo de ventas.")
     print("=== DEBUG PRODUCCION ===")
     print("CWD:", os.getcwd())
     print("Existe uploads/ventas.xlsx:", os.path.exists("uploads/ventas.xlsx"))
@@ -231,7 +265,9 @@ def procesar_transacciones():
 # =====================================================
 
 def procesar_items():
-
+    if RUTA_VENTAS is None:
+        raise FileNotFoundError("No se encontró archivo de ventas.")
+    
     df = pd.read_excel(RUTA_VENTAS, sheet_name="Items", skiprows=1)
     df = limpiar_columnas(df)
 
@@ -248,6 +284,9 @@ def procesar_items():
 # =====================================================
 
 def procesar_secciones():
+
+    if RUTA_VENTAS is None:
+        raise FileNotFoundError("No se encontró archivo de ventas.")
 
     df = pd.read_excel(RUTA_VENTAS, sheet_name="Secciones", skiprows=1)
     df = limpiar_columnas(df)
@@ -332,9 +371,9 @@ def procesar_secciones():
 
 def procesar_costo_unitario():
 
-    if not os.path.exists(RUTA_COSTO):
+    if RUTA_COSTO is None:
         print("No existe archivo costo unitario.xlsx")
-        return pd.DataFrame(columns=["seccion", "item", "costo unitario"])
+        return pd.DataFrame(columns=["seccion", "item", "costo_unitario"])
 
     # NO forzamos nombre de hoja
     try:
