@@ -139,9 +139,7 @@ def normalizar_texto(texto: str) -> str:
 
     return texto.upper().strip()
 
-# =====================================================
-# GASTOS
-# =====================================================
+
 # =====================================================
 # GASTOS
 # =====================================================
@@ -152,22 +150,44 @@ def procesar_gastos():
 
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
 
-    try:
+    # =================================================
+    # SOLUCIÓN ROBUSTA PARA XLS / XLSX
+    # =================================================
+    if RUTA_GASTOS.lower().endswith(".xls"):
+
+        from openpyxl import Workbook
+        import tempfile
+        import xlrd
+
+        book = xlrd.open_workbook(RUTA_GASTOS)
+        sheet = book.sheet_by_index(0)
+
+        wb = Workbook()
+
+        # Aseguramos que exista una hoja activa (Pylance deja de llorar)
+        ws = wb.active
+        if ws is None:
+            ws = wb.create_sheet(title="Sheet1")
+
+        for r in range(sheet.nrows):
+            ws.append(list(sheet.row_values(r)))  # 👈 cast a list, Pylance feliz
+
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        wb.save(tmp_file.name)
+
+        df = pd.read_excel(tmp_file.name, sheet_name=0, skiprows=1, engine="openpyxl")
+
+    else:
+
         df = pd.read_excel(
             RUTA_GASTOS,
             sheet_name="Gastos",
             skiprows=1
         )
 
-    except Exception:
-        # fallback si cambia el nombre de la hoja
-        df = pd.read_excel(
-            RUTA_GASTOS,
-            sheet_name=0,
-            skiprows=1
-        )
-
     df = limpiar_columnas(df)
+
+    df.columns = df.columns.str.strip().str.lower()
 
     df["fecha"] = limpiar_fecha(df["fecha"])
     df["total"] = pd.to_numeric(df["total"], errors="coerce")
