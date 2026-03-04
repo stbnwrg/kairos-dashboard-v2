@@ -153,7 +153,7 @@ def procesar_gastos():
     # =================================================
     # SOLUCIÓN ROBUSTA PARA XLS / XLSX
     # =================================================
-    if RUTA_GASTOS.lower().endswith(".xls"):
+    if ".xls" in RUTA_GASTOS.lower() and not ".xlsx" in RUTA_GASTOS.lower():
 
         from openpyxl import Workbook
         import tempfile
