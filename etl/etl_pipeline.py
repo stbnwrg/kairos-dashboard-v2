@@ -153,36 +153,36 @@ def procesar_gastos():
     # =================================================
     # SOLUCIÓN ROBUSTA PARA XLS / XLSX
     # =================================================
-    if ".xls" in RUTA_GASTOS.lower() and not ".xlsx" in RUTA_GASTOS.lower():
 
+    if RUTA_GASTOS.lower().endswith(".xls"):
+
+        import xlrd
         from openpyxl import Workbook
         import tempfile
-        import xlrd
 
         book = xlrd.open_workbook(RUTA_GASTOS)
         sheet = book.sheet_by_index(0)
 
         wb = Workbook()
-
-        # Aseguramos que exista una hoja activa (Pylance deja de llorar)
         ws = wb.active
-        if ws is None:
-            ws = wb.create_sheet(title="Sheet1")
+
+        assert ws is not None
 
         for r in range(sheet.nrows):
-            ws.append(list(sheet.row_values(r)))  # 👈 cast a list, Pylance feliz
+            ws.append(list(sheet.row_values(r)))
 
         tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
         wb.save(tmp_file.name)
 
-        df = pd.read_excel(tmp_file.name, sheet_name=0, skiprows=1, engine="openpyxl")
+        df = pd.read_excel(tmp_file.name, sheet_name=0, skiprows=1)
 
     else:
 
         df = pd.read_excel(
             RUTA_GASTOS,
             sheet_name="Gastos",
-            skiprows=1
+            skiprows=1,
+            engine="openpyxl"
         )
 
     df = limpiar_columnas(df)

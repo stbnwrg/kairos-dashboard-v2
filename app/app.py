@@ -250,7 +250,7 @@ except Exception:
 
             sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-            from etl.etl_pipeline import run_etl
+            from etl.etl_pipeline import main as run_etl
             run_etl()
 
             st.success("Base generada correctamente. Recargando...")
