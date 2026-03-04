@@ -148,6 +148,15 @@ def procesar_gastos():
     if RUTA_GASTOS is None:
         raise FileNotFoundError("No se encontró archivo de gastos.")
 
+    # DEBUG IMPORTANTE (Render)
+    print("=== DEBUG GASTOS ===")
+    print("Archivo detectado:", RUTA_GASTOS)
+
+    try:
+        print("Tamaño archivo:", os.path.getsize(RUTA_GASTOS))
+    except:
+        print("No se pudo obtener tamaño del archivo")
+
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
 
     # =================================================
@@ -159,6 +168,8 @@ def procesar_gastos():
         import xlrd
         from openpyxl import Workbook
         import tempfile
+
+        print("Archivo XLS detectado. Convirtiendo a XLSX temporal...")
 
         book = xlrd.open_workbook(RUTA_GASTOS)
         sheet = book.sheet_by_index(0)
@@ -174,16 +185,42 @@ def procesar_gastos():
         tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
         wb.save(tmp_file.name)
 
-        df = pd.read_excel(tmp_file.name, sheet_name=0, skiprows=1)
-
-    else:
+        print("Archivo temporal generado:", tmp_file.name)
 
         df = pd.read_excel(
-            RUTA_GASTOS,
-            sheet_name="Gastos",
+            tmp_file.name,
+            sheet_name=0,
             skiprows=1,
             engine="openpyxl"
         )
+
+    else:
+
+        print("Archivo XLSX detectado")
+
+        try:
+
+            df = pd.read_excel(
+                RUTA_GASTOS,
+                sheet_name="Gastos",
+                skiprows=1,
+                engine="openpyxl"
+            )
+
+        except Exception as e:
+
+            print("No se pudo leer hoja 'Gastos'. Probando primera hoja.")
+            print("Error:", e)
+
+            df = pd.read_excel(
+                RUTA_GASTOS,
+                sheet_name=0,
+                skiprows=1
+            )
+
+    # =================================================
+    # LIMPIEZA
+    # =================================================
 
     df = limpiar_columnas(df)
 

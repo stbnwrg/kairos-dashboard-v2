@@ -527,26 +527,30 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                 ventas_path = os.path.join("uploads", "ventas.xlsx")
                 with open(ventas_path, "wb") as f:
                     f.write(ventas_file.getbuffer())
+                    f.flush()
                 args += ["--ventas"]
 
             if gastos_file is not None:
                 gastos_path = os.path.join("uploads", "gastos.xlsx")
                 with open(gastos_path, "wb") as f:
                     f.write(gastos_file.getbuffer())
+                    f.flush()
                 args += ["--gastos"]
 
             if costo_file is not None:
                 costo_path = os.path.join("uploads", "costo_unitario.xlsx")
                 with open(costo_path, "wb") as f:
                     f.write(costo_file.getbuffer())
+                    f.flush()
                 args += ["--costos"]
 
-            result = subprocess.run(args, capture_output=True, text=True)
+            from etl.etl_pipeline import main as run_etl
 
-            if result.returncode != 0:
-                st.error("Error en ETL")
-                st.code(result.stderr)
-                st.stop()
+            run_etl(
+                run_gastos=gastos_file is not None,
+                run_ventas=ventas_file is not None,
+                run_costos=costo_file is not None
+            )
 
             st.cache_data.clear()
             st.success("Datos actualizados correctamente.")
