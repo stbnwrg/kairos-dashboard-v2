@@ -145,9 +145,29 @@ def normalizar_texto(texto: str) -> str:
 def procesar_gastos():
     if RUTA_GASTOS is None:
         raise FileNotFoundError("No se encontró archivo de gastos.")
+
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
-    
-    df = pd.read_excel(RUTA_GASTOS, sheet_name="Gastos", skiprows=1)
+
+    # Forzar lectura universal
+    df = pd.read_excel(RUTA_GASTOS, sheet_name=0, skiprows=1)
+
+    df = limpiar_columnas(df)
+
+    try:
+        df = pd.read_excel(
+            RUTA_GASTOS,
+            sheet_name="Gastos",
+            skiprows=1,
+            engine="xlrd"
+        )
+    except Exception:
+        # fallback robusto
+        df = pd.read_excel(
+            RUTA_GASTOS,
+            sheet_name=0,
+            skiprows=1
+        )
+
     df = limpiar_columnas(df)
 
     df["fecha"] = limpiar_fecha(df["fecha"])

@@ -499,7 +499,7 @@ ventas_file = st.sidebar.file_uploader(
 
 gastos_file = st.sidebar.file_uploader(
     "Subir archivo Gastos",
-    type=["xls"],
+    type=["xls", "xlsx"],
     key="gastos_upload"
 )
 
@@ -530,7 +530,7 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                 args += ["--ventas"]
 
             if gastos_file is not None:
-                gastos_path = os.path.join("uploads", "gastos.xls")
+                gastos_path = os.path.join("uploads", "gastos.xlsx")
                 with open(gastos_path, "wb") as f:
                     f.write(gastos_file.getbuffer())
                 args += ["--gastos"]
