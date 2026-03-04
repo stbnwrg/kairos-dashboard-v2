@@ -559,6 +559,12 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
             # Ejecutar ETL
             # ======================================================
 
+            import sys
+            import os
+
+            PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+            sys.path.append(PROJECT_ROOT)
+
             from etl.etl_pipeline import main as run_etl
 
             run_etl(
