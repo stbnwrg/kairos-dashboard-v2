@@ -24,7 +24,8 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 DB_PATH = os.path.join(PROJECT_ROOT, "database", "kairos.db")
 
 # Crear carpeta database si no existe (necesario en Render)
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+UPLOADS_DIR = os.path.join(PROJECT_ROOT, "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 
 MESES = {
@@ -527,7 +528,7 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
             # ======================================================
 
             if ventas_file is not None:
-                ventas_path = os.path.join("uploads", "ventas.xlsx")
+                ventas_path = os.path.join(UPLOADS_DIR, "ventas.xlsx")
                 with open(ventas_path, "wb") as f:
                     f.write(ventas_file.getbuffer())
                     f.flush()
@@ -537,10 +538,10 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                 original_name = (gastos_file.name or "").lower()
                 ext = ".xls" if original_name.endswith(".xls") else ".xlsx"
 
-                gastos_path = os.path.join("uploads", f"gastos{ext}")
+                gastos_path = os.path.join(UPLOADS_DIR, f"gastos{ext}")
 
                 # (Opcional pero recomendado) borrar el “otro” para evitar lecturas cruzadas
-                other_path = os.path.join("uploads", "gastos.xls" if ext == ".xlsx" else "gastos.xlsx")
+                other_path = os.path.join(UPLOADS_DIR, "gastos.xls" if ext == ".xlsx" else "gastos.xlsx")
                 if os.path.exists(other_path):
                     os.remove(other_path)
 
@@ -549,12 +550,12 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                     f.flush()
 
             if costo_file is not None:
-                costo_path = os.path.join("uploads", "costo_unitario.xlsx")
+                costo_path = os.path.join(UPLOADS_DIR, "costo_unitario.xlsx")
                 with open(costo_path, "wb") as f:
                     f.write(costo_file.getbuffer())
                     f.flush()
 
-
+print("ARCHIVOS UPLOADS:", os.listdir(UPLOADS_DIR))
             # ======================================================
             # Ejecutar ETL
             # ======================================================
