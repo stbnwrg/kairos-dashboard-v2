@@ -148,20 +148,13 @@ def procesar_gastos():
 
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
 
-    # Forzar lectura universal
-    df = pd.read_excel(RUTA_GASTOS, sheet_name=0, skiprows=1)
-
-    df = limpiar_columnas(df)
-
     try:
         df = pd.read_excel(
             RUTA_GASTOS,
             sheet_name="Gastos",
-            skiprows=1,
-            engine="xlrd"
+            skiprows=1
         )
     except Exception:
-        # fallback robusto
         df = pd.read_excel(
             RUTA_GASTOS,
             sheet_name=0,
