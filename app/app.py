@@ -890,27 +890,51 @@ st.markdown(
 st.divider()
 st.subheader("Comparativo YoY (mismo período)")
 
-# Definir período actual
-if years_sel and months_sel:
-    current_mask = (
-        (ventas["fecha"].dt.year.isin(years_sel)) &
-        (ventas["fecha"].dt.month.isin(months_sel))
-    )
+# ------------------------------------------------------
+# Determinar año actual y anterior
+# ------------------------------------------------------
+
+if years_sel:
+    year_current = max(years_sel)
 else:
-    current_mask = ventas["fecha"].notna()
+    year_current = ventas["fecha"].dt.year.max()
+
+year_prev = year_current - 1
+
+# Si no hay meses seleccionados usar todos
+if months_sel:
+    months_filter = months_sel
+else:
+    months_filter = list(range(1, 13))
+
+# ------------------------------------------------------
+# Ventas período actual
+# ------------------------------------------------------
+
+current_mask = (
+    (ventas["fecha"].dt.year == year_current) &
+    (ventas["fecha"].dt.month.isin(months_filter))
+)
 
 ventas_actual = ventas[current_mask]["total"].sum()
 
-# Año anterior
-years_prev = [y - 1 for y in years_sel]
+# ------------------------------------------------------
+# Ventas período anterior
+# ------------------------------------------------------
+
 prev_mask = (
-    (ventas["fecha"].dt.year.isin(years_prev)) &
-    (ventas["fecha"].dt.month.isin(months_sel))
+    (ventas["fecha"].dt.year == year_prev) &
+    (ventas["fecha"].dt.month.isin(months_filter))
 )
 
 ventas_prev = ventas[prev_mask]["total"].sum()
 
+# Crecimiento YoY
 crecimiento = ((ventas_actual - ventas_prev) / ventas_prev) if ventas_prev else 0
+
+# ------------------------------------------------------
+# Mostrar KPIs
+# ------------------------------------------------------
 
 col_y1, col_y2 = st.columns(2)
 
@@ -920,17 +944,22 @@ col_y1.metric(
     f"{crecimiento:.1%}"
 )
 
+# ------------------------------------------------------
 # EBIT YoY
+# ------------------------------------------------------
+
 ebit_actual = ebit
-# calcular EBIT año anterior
+
+# Gastos año anterior
 gastos_prev = gastos[
-    (gastos["fecha"].dt.year.isin(years_prev)) &
-    (gastos["fecha"].dt.month.isin(months_sel)) &
-    (gastos["clasificacion"].isin(["OPEX_FIJO","OPEX_VARIABLE"]))
+    (gastos["fecha"].dt.year == year_prev) &
+    (gastos["fecha"].dt.month.isin(months_filter)) &
+    (gastos["clasificacion"].isin(["OPEX_FIJO", "OPEX_VARIABLE"]))
 ]
 
-ventas_prev_ebit = ventas[prev_mask]["total"].sum()
+ventas_prev_ebit = ventas_prev
 costos_prev_ebit = gastos_prev["total"].sum()
+
 ebit_prev = ventas_prev_ebit - costos_prev_ebit
 
 crec_ebit = ((ebit_actual - ebit_prev) / abs(ebit_prev)) if ebit_prev else 0
@@ -939,6 +968,14 @@ col_y2.metric(
     "EBIT vs Año Anterior",
     fmt_money(ebit_actual),
     f"{crec_ebit:.1%}"
+)
+
+# ------------------------------------------------------
+# Información del período comparado
+# ------------------------------------------------------
+
+st.caption(
+    f"Comparando {year_current} vs {year_prev} para los meses seleccionados"
 )
 
 # ======================================================
