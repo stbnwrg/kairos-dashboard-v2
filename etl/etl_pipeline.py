@@ -142,48 +142,30 @@ def normalizar_texto(texto: str) -> str:
 # =====================================================
 # GASTOS
 # =====================================================
+# =====================================================
+# GASTOS
+# =====================================================
 def procesar_gastos():
+
     if RUTA_GASTOS is None:
         raise FileNotFoundError("No se encontró archivo de gastos.")
 
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
 
     try:
-
-        # Si es xlsx usar openpyxl
-        if RUTA_GASTOS.lower().endswith("xlsx"):
-            df = pd.read_excel(
-                RUTA_GASTOS,
-                sheet_name="Gastos",
-                skiprows=1,
-                engine="openpyxl"
-            )
-
-        # Si es xls usar xlrd
-        else:
-            df = pd.read_excel(
-                RUTA_GASTOS,
-                sheet_name="Gastos",
-                skiprows=1,
-                engine="xlrd"
-            )
+        df = pd.read_excel(
+            RUTA_GASTOS,
+            sheet_name="Gastos",
+            skiprows=1
+        )
 
     except Exception:
-
-        if RUTA_GASTOS.lower().endswith("xlsx"):
-            df = pd.read_excel(
-                RUTA_GASTOS,
-                sheet_name=0,
-                skiprows=1,
-                engine="openpyxl"
-            )
-        else:
-            df = pd.read_excel(
-                RUTA_GASTOS,
-                sheet_name=0,
-                skiprows=1,
-                engine="xlrd"
-            )
+        # fallback si cambia el nombre de la hoja
+        df = pd.read_excel(
+            RUTA_GASTOS,
+            sheet_name=0,
+            skiprows=1
+        )
 
     df = limpiar_columnas(df)
 
