@@ -555,7 +555,7 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
                     f.write(costo_file.getbuffer())
                     f.flush()
 
-print("ARCHIVOS UPLOADS:", os.listdir(UPLOADS_DIR))
+            print("ARCHIVOS UPLOADS:", os.listdir(UPLOADS_DIR))
             # ======================================================
             # Ejecutar ETL
             # ======================================================
