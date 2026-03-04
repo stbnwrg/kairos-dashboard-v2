@@ -149,17 +149,41 @@ def procesar_gastos():
     FECHA_INICIO_OPERACION = pd.Timestamp("2025-10-01")
 
     try:
-        df = pd.read_excel(
-            RUTA_GASTOS,
-            sheet_name="Gastos",
-            skiprows=1
-        )
+
+        # Si es xlsx usar openpyxl
+        if RUTA_GASTOS.lower().endswith("xlsx"):
+            df = pd.read_excel(
+                RUTA_GASTOS,
+                sheet_name="Gastos",
+                skiprows=1,
+                engine="openpyxl"
+            )
+
+        # Si es xls usar xlrd
+        else:
+            df = pd.read_excel(
+                RUTA_GASTOS,
+                sheet_name="Gastos",
+                skiprows=1,
+                engine="xlrd"
+            )
+
     except Exception:
-        df = pd.read_excel(
-            RUTA_GASTOS,
-            sheet_name=0,
-            skiprows=1
-        )
+
+        if RUTA_GASTOS.lower().endswith("xlsx"):
+            df = pd.read_excel(
+                RUTA_GASTOS,
+                sheet_name=0,
+                skiprows=1,
+                engine="openpyxl"
+            )
+        else:
+            df = pd.read_excel(
+                RUTA_GASTOS,
+                sheet_name=0,
+                skiprows=1,
+                engine="xlrd"
+            )
 
     df = limpiar_columnas(df)
 
