@@ -511,38 +511,49 @@ costo_file = st.sidebar.file_uploader(
 
 if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
 
-    # Si no subiste nada, no hacemos show
     if ventas_file is None and gastos_file is None and costo_file is None:
         st.sidebar.warning("Sube al menos 1 archivo para actualizar.")
+
     else:
+
         with st.spinner("Procesando archivos..."):
 
             os.makedirs("uploads", exist_ok=True)
-            
-            import sys
 
-            args = [sys.executable, os.path.join(PROJECT_ROOT, "etl", "etl_pipeline.py")]
+            # ======================================================
+            # Guardar archivos
+            # ======================================================
 
             if ventas_file is not None:
                 ventas_path = os.path.join("uploads", "ventas.xlsx")
                 with open(ventas_path, "wb") as f:
                     f.write(ventas_file.getbuffer())
                     f.flush()
-                args += ["--ventas"]
 
             if gastos_file is not None:
                 gastos_path = os.path.join("uploads", "gastos.xlsx")
                 with open(gastos_path, "wb") as f:
                     f.write(gastos_file.getbuffer())
                     f.flush()
-                args += ["--gastos"]
 
             if costo_file is not None:
                 costo_path = os.path.join("uploads", "costo_unitario.xlsx")
                 with open(costo_path, "wb") as f:
                     f.write(costo_file.getbuffer())
                     f.flush()
-                args += ["--costos"]
+
+            # ======================================================
+            # Ajustar path para poder importar ETL
+            # ======================================================
+
+            import sys
+            import os
+
+            sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+            # ======================================================
+            # Ejecutar ETL
+            # ======================================================
 
             from etl.etl_pipeline import main as run_etl
 
@@ -553,7 +564,9 @@ if st.sidebar.button("🔄 Procesar y Recargar", use_container_width=True):
             )
 
             st.cache_data.clear()
+
             st.success("Datos actualizados correctamente.")
+
             st.rerun()
 
 # ======================================================
