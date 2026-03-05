@@ -1886,32 +1886,39 @@ st.divider()
 st.subheader("Margen por Producto")
 
 # ------------------------------------------------------
-# Preparar datos
+# Precio máximo observado por producto
 # ------------------------------------------------------
 
-# Precio máximo observado por producto
 precios_productos = (
-    items.groupby(["producto", "seccion"])["precio"]
+    items.groupby(["item", "seccion"])["precio"]
     .max()
     .reset_index()
     .rename(columns={"precio": "precio_max"})
 )
 
+# ------------------------------------------------------
 # Unir con costos unitarios
+# ------------------------------------------------------
+
 df_margen = precios_productos.merge(
     costos_unitarios,
-    on="producto",
+    on=["item","seccion"],
     how="left"
 )
 
+# ------------------------------------------------------
 # Calcular margen
+# ------------------------------------------------------
+
 df_margen["margen"] = (
     (df_margen["precio_max"] - df_margen["costo_unitario"]) /
     df_margen["precio_max"]
 )
 
+df_margen["margen"] = df_margen["margen"].fillna(0)
+
 # ------------------------------------------------------
-# Filtro de sección (solo para esta sección)
+# Filtro independiente de sección
 # ------------------------------------------------------
 
 secciones_disponibles = sorted(df_margen["seccion"].dropna().unique())
@@ -1927,7 +1934,7 @@ df_margen_filtrado = df_margen[
 ]
 
 # ------------------------------------------------------
-# Tabla de margen
+# Ordenar por margen
 # ------------------------------------------------------
 
 df_margen_filtrado = df_margen_filtrado.sort_values(
@@ -1935,10 +1942,14 @@ df_margen_filtrado = df_margen_filtrado.sort_values(
     ascending=False
 )
 
+# ------------------------------------------------------
+# Tabla
+# ------------------------------------------------------
+
 st.dataframe(
     df_margen_filtrado[[
         "seccion",
-        "producto",
+        "item",
         "precio_max",
         "costo_unitario",
         "margen"
@@ -1947,20 +1958,20 @@ st.dataframe(
 )
 
 # ------------------------------------------------------
-# Gráfico de margen
+# Gráfico
 # ------------------------------------------------------
 
 fig_margen = px.bar(
     df_margen_filtrado,
-    x="producto",
+    x="item",
     y="margen",
     color="seccion",
-    title="Margen por Producto",
+    title="Margen por Producto"
 )
 
 fig_margen.update_layout(
     xaxis_title="Producto",
-    yaxis_title="Margen",
+    yaxis_title="Margen"
 )
 
 st.plotly_chart(fig_margen, use_container_width=True)
