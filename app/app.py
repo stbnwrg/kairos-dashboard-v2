@@ -1886,7 +1886,25 @@ st.divider()
 st.subheader("Margen por Producto")
 
 # ------------------------------------------------------
-# Precio máximo observado por producto
+# COLORES KAIROS
+# ------------------------------------------------------
+
+KAIROS_CAFE = "#4B2E2B"
+KAIROS_BEIGE = "#EFE7DE"
+KAIROS_BG = "#F6F3EF"
+KAIROS_GOLD = "#C8A97E"
+KAIROS_MUTED = "#D7C2B0"
+
+kairos_palette = [
+    KAIROS_CAFE,
+    KAIROS_GOLD,
+    KAIROS_MUTED,
+    "#6D4C41",
+    "#8D6E63",
+]
+
+# ------------------------------------------------------
+# PRECIO MAXIMO POR PRODUCTO
 # ------------------------------------------------------
 
 precios_productos = (
@@ -1897,7 +1915,7 @@ precios_productos = (
 )
 
 # ------------------------------------------------------
-# Unir con costos unitarios
+# MERGE COSTOS
 # ------------------------------------------------------
 
 df_margen = precios_productos.merge(
@@ -1907,7 +1925,7 @@ df_margen = precios_productos.merge(
 )
 
 # ------------------------------------------------------
-# Limpiar productos sin costo o sin item
+# LIMPIAR DATOS INVALIDOS
 # ------------------------------------------------------
 
 df_margen = df_margen[
@@ -1918,30 +1936,58 @@ df_margen = df_margen[
 ]
 
 # ------------------------------------------------------
-# Calcular margen
+# CALCULAR MARGEN
 # ------------------------------------------------------
 
 df_margen["margen"] = (
-    (df_margen["precio_max"] - df_margen["costo_unitario"]) /
-    df_margen["precio_max"]
+    (df_margen["precio_max"] - df_margen["costo_unitario"])
+    / df_margen["precio_max"]
 )
 
-# convertir a %
 df_margen["margen_pct"] = (df_margen["margen"] * 100).round(1)
 
 # ------------------------------------------------------
-# FILTRO DE SECCIONES (BOTONES)
+# FILTRO SECCIONES (BOTONES)
 # ------------------------------------------------------
 
-secciones_disponibles = sorted(df_margen["seccion"].unique())
+st.markdown("### Filtrar Secciones")
 
-cols = st.columns(len(secciones_disponibles))
+all_secciones = sorted(df_margen["seccion"].unique())
 
-secciones_sel = []
+ensure_session_list("secciones_sel", all_secciones)
 
-for i, sec in enumerate(secciones_disponibles):
-    if cols[i].checkbox(sec, value=True):
-        secciones_sel.append(sec)
+st.session_state["secciones_sel"] = [
+    s for s in st.session_state["secciones_sel"]
+    if s in all_secciones
+]
+
+if not st.session_state["secciones_sel"] and all_secciones:
+    st.session_state["secciones_sel"] = list(all_secciones)
+
+b1, b2 = st.columns(2)
+
+if b1.button("Seleccionar todo", use_container_width=True, key="sec_all"):
+    set_list("secciones_sel", all_secciones)
+
+if b2.button("Limpiar", use_container_width=True, key="sec_clear"):
+    set_list("secciones_sel", [])
+
+cols = st.columns(4)
+
+for i, sec in enumerate(all_secciones):
+
+    selected = sec in st.session_state["secciones_sel"]
+    btn_type = "primary" if selected else "secondary"
+
+    if cols[i % 4].button(
+        sec,
+        type=btn_type,
+        use_container_width=True,
+        key=f"sec_{sec}"
+    ):
+        toggle_in_list("secciones_sel", sec)
+
+secciones_sel = sorted(st.session_state["secciones_sel"])
 
 df_margen_filtrado = df_margen[
     df_margen["seccion"].isin(secciones_sel)
@@ -1957,28 +2003,37 @@ df_margen_filtrado = df_margen_filtrado.sort_values(
 )
 
 # ------------------------------------------------------
+# FORMATEAR NUMEROS
+# ------------------------------------------------------
+
+df_display = df_margen_filtrado.copy()
+
+df_display["precio_max"] = df_display["precio_max"].apply(fmt_money)
+df_display["costo_unitario"] = df_display["costo_unitario"].apply(fmt_money)
+
+# ------------------------------------------------------
 # TABLA
 # ------------------------------------------------------
 
 st.dataframe(
-    df_margen_filtrado[[
+    df_display[[
         "seccion",
         "item",
         "precio_max",
         "costo_unitario",
         "margen_pct"
     ]].rename(columns={
-        "seccion":"Sección",
-        "item":"Producto",
-        "precio_max":"Precio",
-        "costo_unitario":"Costo",
-        "margen_pct":"Margen %"
+        "seccion": "Sección",
+        "item": "Producto",
+        "precio_max": "Precio",
+        "costo_unitario": "Costo",
+        "margen_pct": "Margen %"
     }),
     use_container_width=True
 )
 
 # ------------------------------------------------------
-# GRÁFICO
+# GRAFICO
 # ------------------------------------------------------
 
 fig_margen = px.bar(
@@ -1987,9 +2042,9 @@ fig_margen = px.bar(
     y="margen",
     color="seccion",
     text="margen_pct",
+    color_discrete_sequence=kairos_palette
 )
 
-# colores Kairos (cafés)
 fig_margen.update_traces(
     texttemplate="%{text}%",
     textposition="outside"
@@ -1997,22 +2052,21 @@ fig_margen.update_traces(
 
 fig_margen.update_layout(
 
-    colorway=[
-        "#4E342E",
-        "#6D4C41",
-        "#8D6E63",
-        "#A1887F",
-        "#3E2723"
-    ],
+    plot_bgcolor=KAIROS_BG,
+    paper_bgcolor=KAIROS_BG,
 
     xaxis_title="Producto",
-    yaxis_title="Margen (%)",
+    yaxis_title="Margen",
 
     yaxis=dict(
         tickformat=".0%"
     ),
 
-    showlegend=True
+    font=dict(
+        color=KAIROS_CAFE
+    ),
+
+    legend_title="Sección"
 )
 
 st.plotly_chart(fig_margen, use_container_width=True)
