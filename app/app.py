@@ -1877,6 +1877,95 @@ else:
 #    except Exception as e:
 #        st.error("Error al generar PDF. Verifica instalación de wkhtmltopdf.")
 #        st.exception(e)
+
+# ======================================================
+# MARGEN POR PRODUCTO Y SECCIÓN
+# ======================================================
+
+st.divider()
+st.subheader("Margen por Producto")
+
+# ------------------------------------------------------
+# Preparar datos
+# ------------------------------------------------------
+
+# Precio máximo observado por producto
+precios_productos = (
+    items.groupby(["producto", "seccion"])["precio"]
+    .max()
+    .reset_index()
+    .rename(columns={"precio": "precio_max"})
+)
+
+# Unir con costos unitarios
+df_margen = precios_productos.merge(
+    costos_unitarios,
+    on="producto",
+    how="left"
+)
+
+# Calcular margen
+df_margen["margen"] = (
+    (df_margen["precio_max"] - df_margen["costo_unitario"]) /
+    df_margen["precio_max"]
+)
+
+# ------------------------------------------------------
+# Filtro de sección (solo para esta sección)
+# ------------------------------------------------------
+
+secciones_disponibles = sorted(df_margen["seccion"].dropna().unique())
+
+secciones_sel = st.multiselect(
+    "Filtrar Secciones",
+    options=secciones_disponibles,
+    default=secciones_disponibles
+)
+
+df_margen_filtrado = df_margen[
+    df_margen["seccion"].isin(secciones_sel)
+]
+
+# ------------------------------------------------------
+# Tabla de margen
+# ------------------------------------------------------
+
+df_margen_filtrado = df_margen_filtrado.sort_values(
+    "margen",
+    ascending=False
+)
+
+st.dataframe(
+    df_margen_filtrado[[
+        "seccion",
+        "producto",
+        "precio_max",
+        "costo_unitario",
+        "margen"
+    ]],
+    use_container_width=True
+)
+
+# ------------------------------------------------------
+# Gráfico de margen
+# ------------------------------------------------------
+
+fig_margen = px.bar(
+    df_margen_filtrado,
+    x="producto",
+    y="margen",
+    color="seccion",
+    title="Margen por Producto",
+)
+
+fig_margen.update_layout(
+    xaxis_title="Producto",
+    yaxis_title="Margen",
+)
+
+st.plotly_chart(fig_margen, use_container_width=True)
+
+
 # ======================================================
 # DESCARGA COMPLETA DATA FILTRADA
 # ======================================================
