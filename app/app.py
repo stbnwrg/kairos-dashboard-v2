@@ -177,7 +177,38 @@ div[data-testid="stDataFrame"] th {{
 </style>
 """, unsafe_allow_html=True)
 
+# COLORES DE FILTROS SECCIÓN MARGEN POR CATEGORIA
+st.markdown("""
+<style>
 
+/* Botones seleccionados */
+div.stButton > button[kind="primary"] {
+    background-color: #4B2E2B;
+    color: white;
+    border: none;
+}
+
+/* Botones no seleccionados */
+div.stButton > button[kind="secondary"] {
+    background-color: #EFE7DE;
+    color: #4B2E2B;
+    border: none;
+}
+
+/* Eliminar borde rojo al hacer click */
+div.stButton > button:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Hover suave */
+div.stButton > button:hover {
+    background-color: #C8A97E;
+    color: white;
+}
+
+</style>
+""", unsafe_allow_html=True)
 # ======================================================
 # DATA (PostgreSQL - Neon)
 # ======================================================
@@ -2027,6 +2058,22 @@ st.markdown("### Filtrar Secciones")
 macro_secciones = list(SECCION_MAP.keys())
 
 ensure_session_list("macro_sel", macro_secciones)
+
+# ------------------------------------------------------
+# BOTONES CONTROL
+# ------------------------------------------------------
+
+c1, c2 = st.columns(2)
+
+if c1.button("Seleccionar todo", use_container_width=True, key="macro_all"):
+    set_list("macro_sel", macro_secciones)
+
+if c2.button("Limpiar", use_container_width=True, key="macro_clear"):
+    set_list("macro_sel", [])
+
+# ------------------------------------------------------
+# BOTONES SECCIONES
+# ------------------------------------------------------
 
 macro_cols = st.columns(4)
 
