@@ -515,7 +515,7 @@ with col2:
                 unsafe_allow_html=True)
 
 with col3:
-    st.image(os.path.join(BASE_DIR, "assets", "logo_estero.png"), width=160)
+    st.image(os.path.join(BASE_DIR, "assets", "logo_estero.png"), width=180)
 
 st.divider()
 
