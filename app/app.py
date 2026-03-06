@@ -1904,6 +1904,26 @@ kairos_palette = [
 ]
 
 # ------------------------------------------------------
+# COLORES KAIROS EN LOS BOTONES
+# ------------------------------------------------------
+
+st.markdown("""
+<style>
+
+div.stButton > button[kind="primary"] {
+    background-color: #4B2E2B;
+    color: white;
+}
+
+div.stButton > button[kind="secondary"] {
+    background-color: #EFE7DE;
+    color: #4B2E2B;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------------------------------------------
 # PRECIO MAXIMO POR PRODUCTO
 # ------------------------------------------------------
 
@@ -1947,50 +1967,97 @@ df_margen["margen"] = (
 df_margen["margen_pct"] = (df_margen["margen"] * 100).round(1)
 
 # ------------------------------------------------------
-# FILTRO SECCIONES (BOTONES)
+# FAGRUPAR SECCIONES
+# ------------------------------------------------------
+
+SECCION_MAP = {
+
+"CAFÉ": [
+"Café",
+"Productos Blackdrop Coffee",
+"Latte Blackdrop (producto vegano)"
+],
+
+"TÉ": [
+"Productos Adagio Teas",
+"☕ Carta de Teabags - Adagio Teas",
+"☕ Carta de té Infusiones - Adagio Teas",
+"☕ Carta de tés chai - Adagio Teas",
+"☕ Carta de tés matcha - Adagio Teas"
+],
+
+"PASTELERÍA": [
+"Pastelería",
+"Bollería",
+"Croissant Salados",
+"Waffles"
+],
+
+"COMIDA": [
+"Sándwiches",
+"Pizza de la casa",
+"Brunch"
+],
+
+"BEBIDAS": [
+"Batidos",
+"Bebidas frías y otras opciones",
+"Jugos naturales",
+"Helados"
+],
+
+"EXPERIENCIAS": [
+"Momento Kairós - Fotografía",
+"🌟 Diferenciadores (Experiencia Café Kairós)"
+],
+
+"PROMOCIONES": [
+"Promociones Kairós",
+"Promoción Lunes 'Café + Torta del día'",
+"Promociones día del profesor/a"
+]
+
+}
+# ------------------------------------------------------
+# FILTRO SECCIONES (JERARQUICO)
 # ------------------------------------------------------
 
 st.markdown("### Filtrar Secciones")
 
-all_secciones = sorted(df_margen["seccion"].unique())
+macro_secciones = list(SECCION_MAP.keys())
 
-ensure_session_list("secciones_sel", all_secciones)
+ensure_session_list("macro_sel", macro_secciones)
 
-st.session_state["secciones_sel"] = [
-    s for s in st.session_state["secciones_sel"]
-    if s in all_secciones
-]
+macro_cols = st.columns(4)
 
-if not st.session_state["secciones_sel"] and all_secciones:
-    st.session_state["secciones_sel"] = list(all_secciones)
+for i, sec in enumerate(macro_secciones):
 
-b1, b2 = st.columns(2)
-
-if b1.button("Seleccionar todo", use_container_width=True, key="sec_all"):
-    set_list("secciones_sel", all_secciones)
-
-if b2.button("Limpiar", use_container_width=True, key="sec_clear"):
-    set_list("secciones_sel", [])
-
-cols = st.columns(4)
-
-for i, sec in enumerate(all_secciones):
-
-    selected = sec in st.session_state["secciones_sel"]
+    selected = sec in st.session_state["macro_sel"]
     btn_type = "primary" if selected else "secondary"
 
-    if cols[i % 4].button(
+    if macro_cols[i % 4].button(
         sec,
         type=btn_type,
         use_container_width=True,
-        key=f"sec_{sec}"
+        key=f"macro_{sec}"
     ):
-        toggle_in_list("secciones_sel", sec)
+        toggle_in_list("macro_sel", sec)
 
-secciones_sel = sorted(st.session_state["secciones_sel"])
+macro_sel = st.session_state["macro_sel"]
+
+# ------------------------------------------------------
+# SUBFILTRO
+# ------------------------------------------------------
+
+sub_secciones = []
+
+for macro in macro_sel:
+    sub_secciones.extend(SECCION_MAP[macro])
+
+sub_secciones = list(set(sub_secciones))
 
 df_margen_filtrado = df_margen[
-    df_margen["seccion"].isin(secciones_sel)
+    df_margen["seccion"].isin(sub_secciones)
 ]
 
 # ------------------------------------------------------
